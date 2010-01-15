@@ -1,4 +1,6 @@
-from setuptools import setup
+#!/usr/bin/env python
+
+from distuils.core import setup
 
 setup(name='Collage',
       version='1.0',
