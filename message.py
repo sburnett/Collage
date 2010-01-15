@@ -20,17 +20,27 @@ class MessageLayer(object):
         need not worry about this.
     * Erasure code block sizes are also powers of 2. The block size for a given
         message is derived from its length.
-    """
+    * The message format is as follows: the message is padded with zeroes to the
+        next power of two, including the padding header. The padding header contains
+        the length of the padding appended to the message."""
 
-    compression_threshold = 256
+    _int_bytes = struct.calcsize('I')
+    _short_bytes = struct.calcsize('H')
+    _char_bytes = struct.calcsize('B')
+    _format_flags = {_int_bytes: 'I',
+                    _short_bytes: 'H',
+                    _char_bytes: 'B'}
 
-    def __init__(self, Vector, task_database, vector_provider, use_compression):
+    _header_compressed_mask = 1 << _char_bytes*8 - 1
+    _header_size_mask = 1 << ~(_char_bytes*8 - 1)
+
+    def __init__(self, Vector, task_database, vector_provider, block_size):
         """Initialize a message, using a particular Vector for storing message chunks."""
 
         self._Vector = Vector
         self._task_database = task_database
         self._vector_provider = vector_provider
-        self._use_compression = use_compression
+        self._block_size = block_size
 
     def _choose_block_size(self, message_size):
         """Block sizes must be multiples of 2"""
@@ -40,20 +50,13 @@ class MessageLayer(object):
             realsize <<= 1
         return max(min(realsize, 16), 1024)
 
-    int_bytes = struct.calcsize('I')
-    short_bytes = struct.calcsize('H')
-    char_bytes = struct.calcsize('B')
-    format_flags = {int_bytes: 'I',
-                    short_bytes: 'H',
-                    char_bytes: 'B'}
-
     def _sender_get_preamble_size(self, data_len):
-        if data_len + self.char_bytes < (1 << self.char_bytes*8):
-            return self.char_bytes
-        elif data_len + self.short_bytes < (1 << self.short_bytes*8):
-            return self.short_bytes
-        elif data_len + self.int_bytes < (1 << self.int_bytes*8):
-            return self.int_bytes
+        if data_len + self._char_bytes < (1 << self._char_bytes*8):
+            return self._char_bytes
+        elif data_len + self._short_bytes < (1 << self._short_bytes*8):
+            return self._short_bytes
+        elif data_len + self._int_bytes < (1 << self._int_bytes*8):
+            return self._int_bytes
         else:
             raise ValueError('Message too big')
 
@@ -61,7 +64,7 @@ class MessageLayer(object):
         """Pad a message with zeroes out to the nearest power of two, and store
             the length of the pad at the front of the message."""
         preamble_len = self._sender_get_preamble_size(len(data))
-        format_flag = self.format_flags[preamble_len]
+        format_flag = self._format_flags[preamble_len]
         data_len = len(data) + preamble_len
         real_len = 1
         while real_len < data_len:
@@ -71,62 +74,66 @@ class MessageLayer(object):
         return formatted_data
 
     def _get_preamble_size(self, data_len):
-        if data_len < (1 << self.char_bytes*8):
-            return self.char_bytes
-        elif data_len < (1 << self.short_bytes*8):
-            return self.short_bytes
-        elif data_len < (1 << self.int_bytes*8):
-            return self.int_bytes
+        if data_len < (1 << self._char_bytes*8):
+            return self._char_bytes
+        elif data_len < (1 << self._short_bytes*8):
+            return self._short_bytes
+        elif data_len < (1 << self._int_bytes*8):
+            return self._int_bytes
         else:
             raise ValueError('Message too big')
 
     def send(self, identifier, data, num_vectors):
         """Send a message with an associated identifier."""
 
-        formatted_data = self._format_message_data(data)
-        block_size = self._choose_block_size(len(formatted_data))
-        preamble = int(log(len(formatted_data), 2))
-        encoder = coder.Encoder(formatted_data, block_size)
         tasks = self._task_database.lookup(identifier)
+
+        formatted_data = self._format_message_data(data)
+        encoder = coder.Encoder(formatted_data, self._block_size)
 
         key = hashlib.sha1(identifier).digest()
         encrypter = AES.new(key)
 
-        for i in range(num_vectors):
-            (vector, task) = self._vector_provider.get_vector(tasks)
+        header = int(log(len(formatted_data), 2))
+        compressed_header = self._header_compressed_mask | header
 
-            def encode_vector(num_blocks):
-                blocks = []
-                for j in range(blocks_encoded):
-                    blocks.append(encoder.next_block())
-                blocks_len = len(blocks)*block_size
-                payload = struct.pack('B%ds' % blocks_len, preamble, ''.join(blocks))
-                if self._use_compression:
-                    payload = bz2.compress(payload)
-                ciphertext = encrypter.encrypt(payload)
-                vector.encode(ciphertext)
+        for i in range(num_vectors):
+            (cover_vector, task) = self._vector_provider.get_vector(tasks)
 
             blocks_encoded = 1
             while True:
+                blocks = []
+                for j in range(blocks_encoded):
+                    blocks.append(encoder.next_block())
+                blocks_buf = ''.join(blocks)
+                compressed_blocks_buf = bz2.compress(blocks_buf)
+                if len(blocks_buf) <= len(compressed_blocks_buf):
+                    blocks_len = len(blocks_buf)
+                    payload = struct.pack('B%ds' % blocks_len,
+                                          header,
+                                          blocks_buf)
+                else:
+                    blocks_len = len(compressed_blocks_buf)
+                    payload = struct.pack('B%ds' % blocks_len,
+                                          compressed_header,
+                                          compressed_blocks_buf)
+                ciphertext = encrypter.encrypt(payload)
                 try:
-                    encode_vector(blocks_encoded)
+                    coded_vector = cover_vector.encode(ciphertext)
                 except vector.EncodingError:
                     break
                 else:
                     blocks_encoded <<= 1
 
             blocks_encoded >>= 1
-            if blocks_encoded == 0:
+            if blocks_encoded > 0:
+                task.execute_send(coded_vector)
+            else:
                 self._vector_provider.repurpose_vector(vector)
-                continue
-
-            encode_vector(blocks_encoded)
-
-            task.send(vector)
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
-        preamble_flag = self.format_flags[preamble_len]
+        preamble_flag = self._format_flags[preamble_len]
         preamble = struct.unpack(preamble_flag, data[:preamble_len])
         padding_len = 2**preamble
         return data[preamble_len : len(data) - padding_len]
@@ -143,12 +150,14 @@ class MessageLayer(object):
         random.shuffle(tasks)
 
         for task in tasks:
-            vectors = task.receive()
+            vectors = task.execute_receive()
 
             for vector in vectors:
                 if vector.is_encoded():
                     ciphertext = vector.decode()
-                    if self._use_compression:
+                    header_compress = ciphertext[0] & self._header_compressed_mask
+                    header_len = ciphertext[0] & self._header_size_mask
+                    if header_compress != 0:
                         ciphertext = bz2.decompress(ciphertext)
 
                     try:
@@ -159,7 +168,7 @@ class MessageLayer(object):
                     payload = plaintext[1:]
 
                     if decoder is None:
-                        data_len = 2**payload[0]
+                        data_len = 2**header_len
                         block_size = self._choose_block_size(data_len)
                         decoder = coder.Decoder(block_size, data_len)
 
@@ -208,15 +217,19 @@ class TaskDatabase(object):
 class Task(object):
     """A type for Collage tasks. This is used in the task database."""
 
-    def __init__(self, send_snippet, receive_snippet):
+    def __init__(self, send_snippet, receive_snippet, can_embed_snippet):
         self._send_snippet = send_snippet
         self._receive_snippet = receive_snippet
+        self._can_embed_snippet = can_embed_snippet
 
-    def send(self, vector):
+    def execute_send(self, vector):
         self._send_snippet.execute({'data': vector.get_data()})
 
-    def receive(self):
+    def execute_receive(self):
         return self._receive_snippet.execute({})
+
+    def execute_can_embed(self, vector):
+        return self._can_embed_snippet.execte({'vector': vector})
 
     def hash(self):
         code = self._receive_snippet.get_code() + self._send_snippet.get_code()

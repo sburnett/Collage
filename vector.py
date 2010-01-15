@@ -2,11 +2,18 @@ class EncodingError(Exception):
     pass
 
 class Vector(object):
-    """Implementation of Collage's vector layer. This is an abstract class. To use
-    vectors in your application, you must provide a valid implementation."""
+    """Implementation of Collage's vector layer. The data in this class
+    should be immutable; encoding and decoding should create new copies
+    of the vector.
+    
+    This is an abstract class. To use vectors in your application,
+    you must provide a valid implementation."""
 
     def __init__(self, data):
         self._data = data
+
+    def get_data(self):
+        return self._data
 
     def encode(self, data):
         raise NotImplementedError
@@ -17,5 +24,5 @@ class Vector(object):
     def is_encoded(self):
         raise NotImplementedError
 
-    def get_data(self):
-        return self._data
+    def get_property(self, key):
+        raise NotImplementedError
