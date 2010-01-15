@@ -37,8 +37,14 @@ class PythonSnippet(Snippet):
         my_env.update(params)
         return eval(self._compiled, my_env)
 
+python_send_snippet = 'send_vector(data)'
+python_receive_snippet = 'receive_vector()'
+python_can_embed_snippet = 'can_embed()'
+
 def load_snippets(directories):
-    load_python_snippets(directories)
+    snippets = []
+    snippets.extend(load_python_snippets(directories))
+    return snippets
 
 def load_python_snippets(directories):
     primitive_modules = {}
@@ -55,27 +61,27 @@ def load_python_snippets(directories):
                 else:
                     primitive_modules[modulename] = globals
 
-    assisted_modules = {}
-    for filename in os.listdir('assisted'):
-        (modulename, ext) = os.path.splitext(filename)
-        if ext == '.py':
-            try:
-                code = open(os.path.join('assisted', filename), 'r').read()
-                compiled = compile(code, filename, 'exec')
-            except Exception as exception:
-                print 'Error loading primitive module "%s"' % modulename
-                print 'Exception: %s' % (str(exception),)
-            else:
-                assisted_modules[modulename] = (code, compiled)
+    assisted_modules = []
+    assisted_code = [('send', python_send_snippet),
+                     ('receive', python_receive_snippet),
+                     ('can_embed', python_can_embed_snippet)]
+    for name, code in assisted_code:
+        try:
+            compiled = compile(code, name, 'eval')
+        except Exception as exception:
+            print 'Error loading assisted module "%s"' % name
+            print 'Exception: %s' % (str(exception),)
+        else:
+            assisted_modules.append((name, code, compiled))
 
     all_snippets = {}
     for pname, environment in primitive_modules.items():
         snippets = []
-        for aname, (code, compiled) in assisted_modules.items():
+        for (aname, code, compiled) in assisted_modules:
             module_name = '%s in %s' % (aname, pname)
             snippet = PythonSnippet(code, compiled, environment, module_name)
-            snippets.append((aname, snippet))
-        all_snippets[pname] = snippets
+            snippets.append(snippet)
+        all_snippets[pname] = tuple(snippets)
 
     return all_snippets
 

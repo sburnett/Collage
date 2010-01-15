@@ -37,20 +37,18 @@ class MessageLayer(object):
     def __init__(self, vector_provider, block_size, snippet_dirs, task_mapping_size):
         """Initialize a message, using a particular Vector for storing message chunks."""
 
-        self._task_database = task_database
         self._vector_provider = vector_provider
         self._block_size = block_size
 
         self._task_mapping_size = task_mapping_size
+        self._snippet_dirs = snippet_dirs
         self.reload_task_database()
 
     def reload_task_database(self):
-        all_snippets = snippets.load_snippets(snippet_dirs)
+        all_snippets = snippets.load_snippets(self._snippet_dirs)
         tasks = []
-        for task_name, snippets in all_snippets.items():
-            send_snippet = snippets['send_snippet']
-            receive_snippet = snippets['receive_snippet']
-            task = Task(send_snippet, receive_snippet)
+        for (send_snippet, receive_snippet, can_embed_snippet) in all_snippets:
+            task = Task(send_snippet, receive_snippet, can_embed_snippet)
             tasks.append(task)
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
 
@@ -246,9 +244,6 @@ class TaskDatabase(object):
         if idx < len(self._tasks) and self._tasks[idx] == task:
             del self._tasks[idx]
 
-    def clear(self):
-        self._tasks = []
-
     def lookup(self, identifier):
         idx = bisect.bisect(self._tasks, TaskDatabase.MI(identifier))
         mapping = self._tasks[idx:idx+self._mapping_size]
@@ -269,7 +264,7 @@ def main():
     for i in range(10):
         db.add(Task(random_string()))
 
-    for task in db.tasks:
+    for task in db._tasks:
         print '%s: %s' % (task.code, task._hash().encode('hex'))
 
     print

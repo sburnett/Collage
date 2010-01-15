@@ -15,7 +15,7 @@ class VectorProvider(object):
             vector = self._find_vector(task)
 
             if vector is not None:
-                del self._vectors.index(vector)
+                del self._vectors[self._vectors.index(vector)]
                 return vector
 
         return None
