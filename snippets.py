@@ -24,7 +24,6 @@ class Snippet(object):
     def get_code(self):
         return self._code
 
-
 class PythonSnippet(Snippet):
     """Support for arbitrary executable code snippets."""
 
@@ -38,19 +37,23 @@ class PythonSnippet(Snippet):
         my_env.update(params)
         return eval(self._compiled, my_env)
 
-def load_python_snippets():
+def load_snippets(directories):
+    load_python_snippets(directories)
+
+def load_python_snippets(directories):
     primitive_modules = {}
-    for filename in os.listdir('primitives'):
-        (modulename, ext) = os.path.splitext(filename)
-        if ext == '.py':
-            globals = {}
-            try:
-                execfile(os.path.join('primitives', filename), globals)
-            except Exception as exception:
-                print 'Error loading primitive module "%s"' % modulename
-                print 'Exception: %s' % (str(exception),)
-            else:
-                primitive_modules[modulename] = globals
+    for directory in directories:
+        for filename in os.listdir(directory):
+            (modulename, ext) = os.path.splitext(filename)
+            if ext == '.py':
+                globals = {}
+                try:
+                    execfile(os.path.join('primitives', filename), globals)
+                except Exception as exception:
+                    print 'Error loading primitive module "%s"' % modulename
+                    print 'Exception: %s' % (str(exception),)
+                else:
+                    primitive_modules[modulename] = globals
 
     assisted_modules = {}
     for filename in os.listdir('assisted'):
@@ -75,6 +78,8 @@ def load_python_snippets():
         all_snippets[pname] = snippets
 
     return all_snippets
+
+del load_python_snippets
 
 if __name__ == '__main__':
     all_snippets = load_python_snippets()

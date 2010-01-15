@@ -34,13 +34,25 @@ class MessageLayer(object):
     _header_compressed_mask = 1 << _char_bytes*8 - 1
     _header_size_mask = 1 << ~(_char_bytes*8 - 1)
 
-    def __init__(self, Vector, task_database, vector_provider, block_size):
+    def __init__(self, vector_provider, block_size, snippet_dirs, task_mapping_size):
         """Initialize a message, using a particular Vector for storing message chunks."""
 
-        self._Vector = Vector
         self._task_database = task_database
         self._vector_provider = vector_provider
         self._block_size = block_size
+
+        self._task_mapping_size = task_mapping_size
+        self.reload_task_database()
+
+    def reload_task_database(self):
+        all_snippets = snippets.load_snippets(snippet_dirs)
+        tasks = []
+        for task_name, snippets in all_snippets.items():
+            send_snippet = snippets['send_snippet']
+            receive_snippet = snippets['receive_snippet']
+            task = Task(send_snippet, receive_snippet)
+            tasks.append(task)
+        self._task_database = TaskDatabase(tasks, self._task_mapping_size)
 
     def _choose_block_size(self, message_size):
         """Block sizes must be multiples of 2"""
@@ -185,35 +197,6 @@ class MessageLayer(object):
 
         return None
         
-class TaskDatabase(object):
-    """An implementation of Collage's task database."""
-
-    class MI(str):
-        def hash(self):
-            return hashlib.sha1(self).digest()
-
-    def __init__(self, mapping_size=1, tasks=[]):
-        self.mapping_size = mapping_size
-        self.tasks = tasks
-        self.tasks.sort()
-
-    def add(self, task):
-        idx = bisect.bisect_left(self.tasks, task)
-        if idx == len(self.tasks) or self.tasks[idx] != task:
-            bisect.insort(self.tasks, task)
-
-    def remove(self, task):
-        idx = bisect.bisect_left(self.tasks, task)
-        if idx < len(self.tasks) and self.tasks[idx] == task:
-            del self.tasks[idx]
-
-    def lookup(self, identifier):
-        idx = bisect.bisect(self.tasks, TaskDatabase.MI(identifier))
-        mapping = self.tasks[idx:idx+self.mapping_size]
-        if idx + self.mapping_size > len(self.tasks):
-            mapping += self.tasks[0:idx+self.mapping_size-len(self.tasks)]
-        return mapping
-
 class Task(object):
     """A type for Collage tasks. This is used in the task database."""
 
@@ -231,22 +214,47 @@ class Task(object):
     def execute_can_embed(self, vector):
         return self._can_embed_snippet.execte({'vector': vector})
 
-    def hash(self):
+    def _hash(self):
         code = self._receive_snippet.get_code() + self._send_snippet.get_code()
         return hashlib.sha1(code).digest()
 
     def __cmp__(self, other):
-        return cmp(self.hash(), other.hash())
+        return cmp(self._hash(), other._hash())
 
-def load_tasks():
-    tasks = []
-    all_snippets = snippets.load_python_snippets()
-    for task_name, snippets in all_snippets.items():
-        send_snippet = snippets['send_snippet']
-        receive_snippet = snippets['receive_snippet']
-        task = Task(send_snippet, receive_snippet)
-        tasks.append(task)
-    return tasks
+class TaskDatabase(object):
+    """An implementation of Collage's task database."""
+
+    class MI(str):
+        def _hash(self):
+            return hashlib.sha1(self).digest()
+
+        def __cmp__(self, other):
+            return cmp(self._hash(), other._hash())
+
+    def __init__(self, tasks=[], mapping_size=1):
+        self._mapping_size = mapping_size
+        self._tasks = tasks
+        self._tasks.sort()
+
+    def add(self, task):
+        idx = bisect.bisect_left(self._tasks, task)
+        if idx == len(self._tasks) or self._tasks[idx] != task:
+            bisect.insort(self._tasks, task)
+
+    def remove(self, task):
+        idx = bisect.bisect_left(self._tasks, task)
+        if idx < len(self._tasks) and self._tasks[idx] == task:
+            del self._tasks[idx]
+
+    def clear(self):
+        self._tasks = []
+
+    def lookup(self, identifier):
+        idx = bisect.bisect(self._tasks, TaskDatabase.MI(identifier))
+        mapping = self._tasks[idx:idx+self._mapping_size]
+        if idx + self._mapping_size > len(self._tasks):
+            mapping += self._tasks[0 : idx+self._mapping_size-len(self._tasks)]
+        return mapping
 
 def main():
     def random_string():
@@ -262,14 +270,14 @@ def main():
         db.add(Task(random_string()))
 
     for task in db.tasks:
-        print '%s: %s' % (task.code, task.hash().encode('hex'))
+        print '%s: %s' % (task.code, task._hash().encode('hex'))
 
     print
     print 'Testing some messages'
 
     for i in range(10):
         msg = random_string()
-        print '%s maps to %s' % (Task(msg).hash().encode('hex'), map(lambda t: t.hash().encode('hex'), db.lookup(msg)))
+        print '%s maps to %s' % (Task(msg)._hash().encode('hex'), map(lambda t: t._hash().encode('hex'), db.lookup(msg)))
 
 if __name__ == '__main__':
     main()
