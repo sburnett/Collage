@@ -3,9 +3,12 @@
 <window
 	id="mainWindow"
 	title="Collage Task Driver"
-    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+    onload="onWindowLoad()"
+    onunload="onWindowClose()">
     <script type="application/javascript;version=1.7" src="dojo_rpc_only.js"/>
     <script type="application/javascript;version=1.7" src="driver.js"/>
 
-    <browser id="drivenBrowser" type="content" onload="onFrameLoad()" flex="1"/>
+    <browser id="drivenBrowser" type="content" onload="DriverUtils.onFrameLoad()" flex="1"/>
+    <button label="Close" onclick="window.close()"/>
 </window>

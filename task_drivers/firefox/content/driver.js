@@ -1,44 +1,34 @@
 function sleep(delay) {
-    /**
-    * Just uncomment this code if you're building an extention for Firefox.
-    * Since FF3, we'll have to ask for user permission to execute XPCOM objects.
-    */
     netscape.security.PrivilegeManager.enablePrivilege("UniversalXPConnect");
  
-    // Get the current thread.
     var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
  
-    // Create an inner property to be used later as a notifier.
     this.delayed = true;
- 
-    /* Call JavaScript setTimeout function
-     * to execute this.delayed = false
-     * after it finish.
-    */
     setTimeout("this.delayed = false;", delay);
  
-    /**
-     * Keep looping until this.delayed = false
-    */
     while (this.delayed) {
-        /**
-         * This code will not freeze your browser as it's documented in here:
-         * https://developer.mozilla.org/en/Code_snippets/Threads#Waiting_for_a_background_task_to_complete
-        */
         thread.processNextEvent(true);
     }
 }
 
-DriverUtils = function DriverUtils() {
-    this.waitToLoad() {
-        while(!this.contentLoaded)
-            sleep(50);
+DriverUtils = new function DriverUtils() {
+    this.browser = document.getElementById("drivenBrowser");
+    this.browserCheckInterval = 50;
+
+    this.waitToLoad = function() {
+        while(!this.contentLoaded) {
+            sleep(this.browserCheckInterval);
+        }
+    };
+
+    this.onFrameLoad = function() {
+        this.contentLoaded = true;
     };
 
     this.loadUrl = function(url) {
-        if(this.contentPending)
+        if(this.contentPending) {
             throw "Content pending";
-        else {
+        } else {
             this.contentPending = true;
             this.contentLoaded = false;
             this.browser.setAttribute("src", url);
@@ -46,25 +36,22 @@ DriverUtils = function DriverUtils() {
         }
     };
 
-    this.getUrlFromCache(url) {
-        var ioserv = Components.classes["@mozilla.org/network/io-service;1"]
-            .getService(Components.interfaces.nsIIOService);
+    this.getUrlFromCache = function(url) {
+        var ioserv = Components.classes["@mozilla.org/network/io-service;1"].getService(Components.interfaces.nsIIOService);
         var channel = ioserv.newChannel(url, 0, null);
         channel.loadFlags |= Components.interfaces.nsICachingChannel.LOAD_ONLY_FROM_CACHE;
         var stream = channel.open();
 
-        if (channel instanceof Components.interfaces.nsIHttpChannel
-                && channel.responseStatus != 200) {
+        if (channel instanceof Components.interfaces.nsIHttpChannel && channel.responseStatus != 200) {
             return "";
         }
 
-        var bstream = Components.classes["@mozilla.org/binaryinputstream;1"]
-            .createInstance(Components.interfaces.nsIBinaryInputStream);
+        var bstream = Components.classes["@mozilla.org/binaryinputstream;1"].createInstance(Components.interfaces.nsIBinaryInputStream);
         bstream.setInputStream(stream);
 
         var size = 0;
         var file_data = "";
-        while(size = bstream.available()) {
+        while((size = bstream.available())) {
             file_data += bstream.readBytes(size);
         }
 
@@ -72,8 +59,9 @@ DriverUtils = function DriverUtils() {
     };
 
     this.clickElement = function(el) {
-        if(this.contentPending)
+        if(this.contentPending) {
             throw "Content pending";
+        }
 
         this.contentPending = true;
         this.contentLoaded = false;
@@ -89,8 +77,9 @@ DriverUtils = function DriverUtils() {
 
     this.clickElementId = function(id) {
         el = this.browser.contentDocument.getElementById(id);
-        if(el == null)
+        if(el === null) {
             throw "Invalid element id " + id;
+        }
 
         this.clickElement(id);
     };
@@ -117,12 +106,12 @@ hostDef = {
 };
 
 function RpcError(message) {
-    this.message = message;
+    this.name = "RpcError";
+    this.message = message || "";
 }
+RpcError.prototype = Error.prototype;
 
-RpcError.prototype = new Error();
-
-SyncRpc = function SynRpc() {
+SyncRpc = new function SynRpc() {
     this.rpcHost = new dojo.rpc.JsonService({smdObj:hostDef});
 
     this.run = function(method, params) {
@@ -132,13 +121,15 @@ SyncRpc = function SynRpc() {
         myDeferred.addCallback(this.onDone);
         myDeferred.addErrback(this.onError);
 
-        while(!(this.resultReceived || this.errorReceived))
+        while(!this.resultReceived && !this.errorReceived) {
             sleep(50);
+        }
 
-        if(this.resultReceived)
+        if(this.resultReceived) {
             return this.result;
-        else
+        } else {
             throw new RpcError(this.error);
+        }
     };
 
     this.onDone = function(result) {
@@ -148,19 +139,17 @@ SyncRpc = function SynRpc() {
 
     this.onError = function(error) {
         this.errorReceived = true;
-        this.error = error;
+        this.error = error.message;
     };
 };
 
-TaskDriver = function TaskDriver() {
+TaskDriver = new function TaskDriver() {
     this.refreshInterval = 50;
-
-    this.browser = document.getElementById("drivenBrowser");
 
     this.refresh = function() {
         snippetOb = this.fetchSnippet();
 
-        if(snippetOb != null) {
+        if(snippetOb !== null) {
             try {
                 result = this.executeSnippet(snippetOb.snippet);
             } catch(error) {
@@ -175,15 +164,16 @@ TaskDriver = function TaskDriver() {
         try {
             result = SyncRpc.run("fetchSnippet", []);
             return dojo.json.serialize(result);
-        } catch(error if error instanceof RpcError) {
+        } catch(error if error.name == "RpcError") {
             alert("Fetch snippet error: " + error.message);
+            return null;
         }
     };
 
     this.snippetReturn = function(id, result, isError) {
         try {
             SyncRpc.run("snippetReturn", [id, result, isError]);
-        } catch(error if error instanceof RpcError) {
+        } catch(error if error.name == "RpcError") {
             alert("Snippet return error: " + error.message);
         }
     };
@@ -199,4 +189,12 @@ TaskDriver = function TaskDriver() {
 
 function evalSnippet(snippet) {
     return eval(snippet);
+}
+
+function onWindowLoad() {
+    TaskDriver.refresh();
+}
+
+function onWindowClose() {
+    clearTimeout(TaskDriver.refreshTimeId);
 }
