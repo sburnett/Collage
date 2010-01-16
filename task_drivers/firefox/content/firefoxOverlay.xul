@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE overlay SYSTEM "chrome://collageclient/locale/collageclient.dtd">
+<overlay id="collageclient-overlay"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <script src="overlay.js"/>
+  <menupopup id="menu_ToolsPopup">
+    <menuitem id="collageclient-open" label="Collage Task Driver" 
+        oncommand="openTaskDriver()"
+        accesskey="t"/>
+  </menupopup>
+</overlay>

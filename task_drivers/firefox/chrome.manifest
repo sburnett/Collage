@@ -1,0 +1,4 @@
+content	collageclient	content/
+locale	collageclient	en-US	locale/en-US/
+skin	collageclient	classic/1.0	skin/
+overlay	chrome://browser/content/browser.xul	chrome://collageclient/content/firefoxOverlay.xul
