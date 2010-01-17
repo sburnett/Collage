@@ -91,15 +91,14 @@ hostDef = {
     "sync": true,
     "methods":[ 
     {
-        "name": "fetchSnippet", 
+        "name": "fetch_snippet", 
         "parameters":[]
     },
     {
-        "name": "snippetReturn", 
+        "name": "snippet_return", 
         "parameters":[
-            {"name": "snippetId"},
             {"name": "result"},
-            {"name": "isError"}
+            {"name": "is_error"}
         ]
     }
     ]
@@ -147,13 +146,13 @@ TaskDriver = new function TaskDriver() {
     this.refreshInterval = 50;
 
     this.refresh = function() {
-        snippetOb = this.fetchSnippet();
+        snippet = this.fetchSnippet();
 
         if(snippetOb !== null) {
             try {
-                result = this.executeSnippet(snippetOb.snippet);
+                result = this.executeSnippet(snippet);
             } catch(error) {
-                this.snippetReturn(snippetOb.id, result);
+                this.snippetReturn(result);
             }
         }
 
@@ -162,7 +161,7 @@ TaskDriver = new function TaskDriver() {
 
     this.fetchSnippet = function() {
         try {
-            result = SyncRpc.run("fetchSnippet", []);
+            result = SyncRpc.run("fetch_snippet", []);
             return dojo.json.serialize(result);
         } catch(error if error.name == "RpcError") {
             alert("Fetch snippet error: " + error.message);
@@ -170,9 +169,9 @@ TaskDriver = new function TaskDriver() {
         }
     };
 
-    this.snippetReturn = function(id, result, isError) {
+    this.snippetReturn = function(result, isError) {
         try {
-            SyncRpc.run("snippetReturn", [id, result, isError]);
+            SyncRpc.run("snippet_return", [result, isError]);
         } catch(error if error.name == "RpcError") {
             alert("Snippet return error: " + error.message);
         }

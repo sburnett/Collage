@@ -9,6 +9,7 @@ import bz2
 import coder
 import snippets
 import vector
+import vectorprovider
 
 class MessageLayer(object):
     """Implementation of Collage's message layer. You must provide

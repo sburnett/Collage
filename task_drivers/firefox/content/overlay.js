@@ -7,7 +7,8 @@ function ajaxTest()
 {
     hostDef = {
         "serviceType": "JSON-RPC", 
-        "serviceURL": "http://fenway.gtnoise.net/~sburnett/cgi-bin/json.py",
+        //"serviceURL": "http://127.0.0.1/~sburnett/cgi-bin/json.py",
+        "serviceURL": "http://127.0.0.1:8000/cgi-bin/json.py",
         "sync": true,
         "methods":[ 
         {
