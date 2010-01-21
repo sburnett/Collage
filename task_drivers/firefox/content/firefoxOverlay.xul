@@ -11,4 +11,13 @@
     <menuitem id="collageclient-test" label="RPC Test" 
         oncommand="ajaxTest()"/>
   </menupopup>
+  <window>
+      <script type="text/javascript">
+          function onLoad(e) {
+            openTaskDriver();
+          }
+
+          //window.addEventListener("load", onLoad, false);
+      </script>
+  </window>
 </overlay>

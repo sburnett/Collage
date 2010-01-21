@@ -11,8 +11,15 @@ function sleep(delay) {
     }
 }
 
-DriverUtils = new function DriverUtils() {
-    this.browser = document.getElementById("drivenBrowser");
+function print(msg) {
+    window.dump(msg);
+}
+
+function println(msg) {
+    window.dump(msg + "\n");
+}
+
+var DriverUtils = new function() {
     this.browserCheckInterval = 50;
 
     this.waitToLoad = function() {
@@ -25,15 +32,19 @@ DriverUtils = new function DriverUtils() {
         this.contentLoaded = true;
     };
 
+    this.getElementById = function(id) {
+        return this.browser.contentDocument.getElementById(id);
+    };
+
     this.loadUrl = function(url) {
-        if(this.contentPending) {
-            throw "Content pending";
-        } else {
-            this.contentPending = true;
-            this.contentLoaded = false;
-            this.browser.setAttribute("src", url);
-            this.waitToLoad();
-        }
+        this.contentLoaded = false;
+        this.browser.loadURI(url, this.browser.LOAD_FLAGS_NONE);
+        this.waitToLoad();
+    };
+
+    this.setElementAttribute = function(id, key, value) {
+        el = this.browser.contentDocument.getElementById(id);
+        el.setAttribute(key, value);
     };
 
     this.getUrlFromCache = function(url) {
@@ -59,29 +70,36 @@ DriverUtils = new function DriverUtils() {
     };
 
     this.clickElement = function(el) {
-        if(this.contentPending) {
-            throw "Content pending";
-        }
-
-        this.contentPending = true;
-        this.contentLoaded = false;
-
         var clicker = document.createEvent("MouseEvents");
         clicker.initMouseEvent("click", true, true, window, 0,
                                0, 0, 0, 0,
                                false, false, false, false, 0, null);
         el.dispatchEvent(clicker);
-
-        this.waitToLoad();
     };
 
     this.clickElementId = function(id) {
         el = this.browser.contentDocument.getElementById(id);
         if(el === null) {
-            throw "Invalid element id " + id;
+            throw new Error("Invalid element id " + id);
         }
 
-        this.clickElement(id);
+        this.clickElement(el);
+    };
+
+    this.typeElement = function(el, ch) {
+        var typer = document.createEvent("KeyboardEvent");
+        typer.initKeyEvent("keypress", true, false, window,
+                           false, false, false, false, 0, ch);
+        el.dispatchEvent(typer);
+    };
+
+    this.typeElementId = function(id, ch) {
+        el = this.browser.contentDocument.getElementById(id);
+        if(el === null) {
+            throw new Error("Invalid element id " + id);
+        }
+
+        this.typeElement(el, ch);
     };
 };
 
@@ -110,16 +128,18 @@ function RpcError(message) {
 }
 RpcError.prototype = Error.prototype;
 
-SyncRpc = new function SynRpc() {
+var SyncRpc = new function() {
     this.rpcHost = new dojo.rpc.JsonService({smdObj:hostDef});
 
     this.run = function(method, params) {
         this.callbackReceived = false;
 
         var myDeferred = this.rpcHost.callRemote(method, params);
-        myDeferred.addCallback(this.onDone);
-        myDeferred.addErrback(this.onError);
+        myDeferred.addCallback(function(r) { SyncRpc.onDone(r) });
+        myDeferred.addErrback(function(e) { SyncRpc.onError(e) });
 
+        this.resultReceived = false;
+        this.errorReceived = false;
         while(!this.resultReceived && !this.errorReceived) {
             sleep(50);
         }
@@ -142,29 +162,40 @@ SyncRpc = new function SynRpc() {
     };
 };
 
-TaskDriver = new function TaskDriver() {
+var TaskDriver = new function() {
     this.refreshInterval = 50;
 
-    this.refresh = function() {
-        snippet = this.fetchSnippet();
+    this.eventLoop = function() {
+        while(true) {
+            print("Fetching snippets...");
+            snippet = this.fetchSnippet();
+            println("done");
 
-        if(snippetOb !== null) {
-            try {
-                result = this.executeSnippet(snippet);
-            } catch(error) {
-                this.snippetReturn(result);
+            if(snippet !== null) {
+                try {
+                    print("Executing snippet...");
+                    result = this.executeSnippet(snippet);
+                    println("done");
+
+                    print("Returning snippet...");
+                    this.snippetReturn(result, false);
+                    println("done");
+                } catch(error) {
+                    println("Execution error: \"" + error.message + "\" at " + error.fileName + ":" + error.lineNumber);
+                    this.snippetReturn(error.message, true);
+                }
             }
-        }
 
-        this.refreshTimeId = setTimeout(this.refresh, this.refreshInterval);
+            print("Sleeping...");
+            sleep(this.refreshInterval);
+            println("done");
+        }
     };
 
     this.fetchSnippet = function() {
         try {
-            result = SyncRpc.run("fetch_snippet", []);
-            return dojo.json.serialize(result);
+            return SyncRpc.run("fetch_snippet", []);
         } catch(error if error.name == "RpcError") {
-            alert("Fetch snippet error: " + error.message);
             return null;
         }
     };
@@ -173,25 +204,31 @@ TaskDriver = new function TaskDriver() {
         try {
             SyncRpc.run("snippet_return", [result, isError]);
         } catch(error if error.name == "RpcError") {
-            alert("Snippet return error: " + error.message);
+            println("Snippet return error: " + error.message);
         }
     };
 
     this.executeSnippet = function(snippet) {
-        try {
-            return evalSnippet(snippet);
-        } catch(error) {
-            return error;
+        result = evalSnippet(snippet);
+        println("Done executing snippet");
+        if(result == undefined) {
+            result = null;
         }
+        return result;
     };
 };
 
 function evalSnippet(snippet) {
-    return eval(snippet);
+    println("About to execute snippet:");
+    println(snippet);
+    retval = eval(snippet);
+    println("Got result: " + retval);
+    return retval;
 }
 
 function onWindowLoad() {
-    TaskDriver.refresh();
+    DriverUtils.browser = document.getElementById("drivenBrowser");
+    TaskDriver.eventLoop();
 }
 
 function onWindowClose() {

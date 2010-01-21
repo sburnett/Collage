@@ -12,20 +12,9 @@
 
 import os.path
 
+import pdb
 class Snippet(object):
-    """Abstract class of executable code snippets"""
-
-    def __init__(self, code, environment):
-        self._code = code
-
-    def execute(self, params):
-        raise NotImplementedError
-
-    def get_code(self):
-        return self._code
-
-class PythonSnippet(Snippet):
-    """Support for arbitrary executable code snippets."""
+    """Arbitrary executable code snippets."""
 
     def __init__(self, code, compiled, environment, modulename='<unknown>'):
         self._code = code
@@ -37,34 +26,36 @@ class PythonSnippet(Snippet):
         my_env.update(params)
         return eval(self._compiled, my_env)
 
-python_send_snippet = 'send_vector(data)'
-python_receive_snippet = 'receive_vector()'
-python_can_embed_snippet = 'can_embed()'
+send_snippet = 'send_vector(data)'
+receive_snippet = 'receive_vector()'
+can_embed_snippet = 'can_embed()'
 
 def load_snippets(directories):
-    snippets = []
-    snippets.extend(load_python_snippets(directories))
-    return snippets
+    """Load all primitive snippets in a set of directories, and
+    execute each assisted snippet in the context of each of the
+    primtive snippets."""
 
-def load_python_snippets(directories):
+    # Evaluate and store primitive snippets
     primitive_modules = {}
     for directory in directories:
         for filename in os.listdir(directory):
             (modulename, ext) = os.path.splitext(filename)
-            if ext == '.py':
+            if os.path.isfile(os.path.join(directory, filename)) \
+                    and ext == '.py':
                 globals = {}
                 try:
-                    execfile(os.path.join('primitives', filename), globals)
+                    execfile(os.path.join(directory, filename), globals)
                 except Exception as exception:
                     print 'Error loading primitive module "%s"' % modulename
                     print 'Exception: %s' % (str(exception),)
                 else:
                     primitive_modules[modulename] = globals
 
+    # Compile assisted snippets
     assisted_modules = []
-    assisted_code = [('send', python_send_snippet),
-                     ('receive', python_receive_snippet),
-                     ('can_embed', python_can_embed_snippet)]
+    assisted_code = [('send', send_snippet),
+                     ('receive', receive_snippet),
+                     ('can_embed', can_embed_snippet)]
     for name, code in assisted_code:
         try:
             compiled = compile(code, name, 'eval')
@@ -74,21 +65,20 @@ def load_python_snippets(directories):
         else:
             assisted_modules.append((name, code, compiled))
 
+    # Associate each assisted snippet with each primtive snippet
     all_snippets = {}
     for pname, environment in primitive_modules.items():
         snippets = []
         for (aname, code, compiled) in assisted_modules:
             module_name = '%s in %s' % (aname, pname)
-            snippet = PythonSnippet(code, compiled, environment, module_name)
+            snippet = Snippet(code, compiled, environment, module_name)
             snippets.append(snippet)
         all_snippets[pname] = tuple(snippets)
 
     return all_snippets
 
-del load_python_snippets
-
 if __name__ == '__main__':
-    all_snippets = load_python_snippets()
+    all_snippets = load_snippets()
 
     for aname, snippets in all_snippets.items():
         print 'Snippets from assisted module %s:' % aname

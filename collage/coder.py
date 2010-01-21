@@ -3,6 +3,8 @@ import random
 import struct
 import sys
 
+import pdb
+
 epsilon = 0.01
 q = 3
 aux_seed = 23
@@ -41,16 +43,24 @@ def fsample(rand, l, n):
         return rand.sample(l, n)
 
 class Encoder(object):
-    def __init__(self, data, block_size):
+    def __init__(self, data, block_size, id_bytes):
         self.rand = random.Random()
         self.current_block_id = 0
-        self.block_size = block_size
-        self.num_message_blocks = int(math.ceil(float(len(data))/block_size))
+        self.block_size = block_size - id_bytes
+        if id_bytes == 1:
+            self.id_flag = 'B'
+        elif id_bytes == 2:
+            self.id_flag = 'H'
+        elif id_bytes == 4:
+            self.id_flag = 'I'
+        self.max_block_id = 2**(id_bytes*8)
+
+        self.num_message_blocks = int(math.ceil(float(len(data))/self.block_size))
 
         # Create message blocks
         message_blocks = []
         for i in range(0, self.num_message_blocks):
-            message_block = struct.pack('%ds' % block_size, data[i*block_size:])
+            message_block = struct.pack('%ds' % self.block_size, data[i*self.block_size:])
             message_blocks.append(map(ord, message_block))
 
         # Generate auxiliary blocks
@@ -71,22 +81,29 @@ class Encoder(object):
         degree = choose_degree(self.rand)
         composite_blocks = fsample(self.rand, self.blocks, degree)
         check_data = ''.join(map(chr, xor_blocks(composite_blocks)))
-        return struct.pack('%s%ds' % (id_flag, len(check_data)), id, check_data)
+        return struct.pack('%s%ds' % (self.id_flag, len(check_data)), id, check_data)
 
     def next_block(self):
         block = self._get_block(self.current_block_id)
-        self.current_block_id += 1
+        self.current_block_id = (self.current_block_id + 1) % self.max_block_id
         return block
 
 class Decoder(object):
     """An implementation of Online Codes, for decoding"""
 
-    def __init__(self, block_size, message_size):
+    def __init__(self, block_size, id_bytes, message_size):
         self.rand = random.Random()
-        self.block_size = block_size
+        self.block_size = block_size - id_bytes
         self.message_size = message_size
 
-        self.num_message_blocks = int(math.ceil(float(message_size)/block_size))
+        if id_bytes == 1:
+            self.id_flag = 'B'
+        elif id_bytes == 2:
+            self.id_flag = 'H'
+        elif id_bytes == 4:
+            self.id_flag = 'I'
+
+        self.num_message_blocks = int(math.ceil(float(message_size)/self.block_size))
         self.num_composite_blocks = int(math.floor(0.55*q*epsilon*self.num_message_blocks)) + self.num_message_blocks
 
         self.composite_blocks = {}
@@ -109,7 +126,7 @@ class Decoder(object):
         return True
 
     def process_block(self, block):
-        (block_id, block_data) = struct.unpack('%s%ds' % (id_flag, self.block_size), block)
+        (block_id, block_data) = struct.unpack('%s%ds' % (self.id_flag, self.block_size), block)
         block_data = map(ord, block_data)
 
         self.rand.seed(block_id)
