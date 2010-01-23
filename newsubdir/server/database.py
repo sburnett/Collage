@@ -5,9 +5,6 @@ import sys
 import random
 import time
 import datetime
-from Crypto.Cipher import AES
-import struct
-import math
 
 default_database = 'donation.sqlite'
 default_dir = 'vectors'
@@ -74,17 +71,6 @@ class DonationDatabase(object):
 
         return secretkey
 
-    def _prepare_data(self, key):
-            data = open(self.get_filename(key), 'r').read()
-            encrypter = AES.new(key)
-            datalen = (len(data)/AES.block_size)*AES.block_size - 1
-            while datalen < len(data):
-                datalen += AES.block_size
-            payload = struct.pack('B%ds' % datalen, datalen - len(data), data)
-            ciphertext = encrypter.encrypt(payload)
-            open('/tmp/test', 'w').write(ciphertext)
-            return ciphertext
-
     def collect(self, key):
         cur = self._conn.execute("""SELECT rowid FROM vectors
                                     WHERE key = ?
@@ -92,7 +78,7 @@ class DonationDatabase(object):
                                  (key, self._done_string))
         row = cur.fetchone()
         if row is not None:
-            return self._prepare_data(key)
+            return open(self.get_filename(key), 'r').read()
         else:
             return None
 
