@@ -9,6 +9,7 @@ so, you directly help circumvent Internet censorship.
 Requirements
 ------------
 * Python 2.5 or newer
+* flickrapi package (http://stuvel.eu/projects/flickrapi)
 * A Flickr account
 
 Using the client
