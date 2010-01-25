@@ -30,7 +30,7 @@ send_snippet = 'send_vector(data)'
 receive_snippet = 'receive_vector()'
 can_embed_snippet = 'can_embed()'
 
-def load_snippets(directories):
+def load_snippets(directories, params):
     """Load all primitive snippets in a set of directories, and
     execute each assisted snippet in the context of each of the
     primtive snippets."""
@@ -42,7 +42,7 @@ def load_snippets(directories):
             (modulename, ext) = os.path.splitext(filename)
             if os.path.isfile(os.path.join(directory, filename)) \
                     and ext == '.py':
-                globals = {}
+                globals = params
                 try:
                     execfile(os.path.join(directory, filename), globals)
                 except Exception as exception:

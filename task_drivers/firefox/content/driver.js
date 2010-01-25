@@ -101,6 +101,10 @@ var DriverUtils = new function() {
 
         this.typeElement(el, ch);
     };
+
+    this.closeWindow = function() {
+        window.close();
+    }
 };
 
 hostDef = {
@@ -226,8 +230,51 @@ function evalSnippet(snippet) {
     return retval;
 }
 
+function WebProgressListener() {
+    //this.url_ = url;
+    this.QueryInterface = function (iid) {
+        if (iid.equals(Components.interfaces.nsIWebProgressListener)
+                || iid.equals(Components.interfaces.nsISupportsWeakReference)
+                || iid.equals(Components.interfaces.nsISupports))
+            return this;
+
+        throw Components.results.NS_ERROR_NO_INTERFACE; 
+    }
+
+    this.onStateChange = function (webProgress, request, stateFlags, status) {
+        var WPL = Components.interfaces.nsIWebProgressListener;
+        println('onStateChange : [' + request.name + '], flags [' + stateFlags + ']');
+        if(stateFlags & WPL.STATE_IS_NETWORK)
+            println('STATE_IS_NETWORK');
+        if((stateFlags & WPL.STATE_STOP)
+                && (stateFlags & WPL.STATE_IS_WINDOW)
+                && (stateFlags & WPL.STATE_IS_NETWORK)) {
+            println('Done loading');
+            DriverUtils.onFrameLoad();
+        }
+    }
+
+    this.onLocationChange = function (webProgress, request, location) {
+        println('onLocationChange : [' + request.name + ']');
+    }
+
+    this.onProgressChange = function (webProgress, request, curSelf, maxSelf, curTotal, maxTotal) {
+        println('onProgressChange : [' + request.name + ']');
+    }
+
+    this.onStatusChange = function (webProgress, request, status, message) {
+        println('onStatusChange : [' + request.name + ']');
+    }
+
+    this.onSecurityChange = function (webProgress, request, state) {
+        println('onSecurityChange : [' + request.name + ']'); 
+    } 
+}
+
 function onWindowLoad() {
     DriverUtils.browser = document.getElementById("drivenBrowser");
+    DriverUtils.browser.addProgressListener(new WebProgressListener());
+    DriverUtils.document = DriverUtils.browser.contentDocument;
     TaskDriver.eventLoop();
 }
 

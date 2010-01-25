@@ -1,5 +1,5 @@
 import hashlib
-from Crypto.Cipher import AES
+from Crypto.Cipher import ARC4
 import bisect
 import struct
 import random
@@ -23,8 +23,7 @@ class MessageLayer(object):
     * Message sizes are powers of 2; This layer transparently handles extending
         messages to the next power of 2 if necessary, so application developers
         need not worry about this.
-    * Erasure code block sizes are also powers of 2. The block size for a given
-        message is derived from its length.
+    * Erasure code block sizes are also powers of 2.
     * The message format is as follows: the message is padded with zeroes to the
         next power of two, including the padding header. The padding header contains
         the length of the padding appended to the message."""
@@ -37,23 +36,10 @@ class MessageLayer(object):
                     _char_bytes: 'B'}
 
     _header_compressed_mask = 0x80
-    _header_padding_mask = 0x60
-    _header_size_mask = 0x1F
+    _header_size_mask = 0x7F
 
-    _size_bits = 5
-    _padding_bits = 2
-    _compressed_bits = 1
-
-    _payload_multiple = AES.block_size
-
-    # We have 2 bits in header to express padding, in terms of blocks
-    _min_block_size = AES.block_size/4
-
-    def __init__(self, vector_provider, block_size, block_id_bytes, snippet_dirs, task_mapping_size):
+    def __init__(self, vector_provider, block_size, block_id_bytes, snippet_dirs, task_mapping_size, snippet_params={}):
         """Initialize a message, using a particular Vector for storing message chunks."""
-
-        if block_size < self._min_block_size:
-            raise MessageLayerError('Block size too small')
 
         self._vector_provider = vector_provider
         self._block_size = block_size
@@ -61,10 +47,11 @@ class MessageLayer(object):
 
         self._task_mapping_size = task_mapping_size
         self._snippet_dirs = snippet_dirs
+        self._snippet_params = snippet_params
         self.reload_task_database()
 
     def reload_task_database(self):
-        all_snippets = snippets.load_snippets(self._snippet_dirs)
+        all_snippets = snippets.load_snippets(self._snippet_dirs, self._snippet_params)
         tasks = []
         for (send_snippet, receive_snippet, can_embed_snippet) in all_snippets.values():
             task = Task(send_snippet, receive_snippet, can_embed_snippet)
@@ -110,18 +97,12 @@ class MessageLayer(object):
 
         compressed_blocks_buf = bz2.compress(blocks_buf)
         if len(blocks_buf) <= len(compressed_blocks_buf):
-            buf_len = len(blocks_buf) + 1
-            padding_len = self._payload_multiple - buf_len % self._payload_multiple
-            padded_blocks = padding_len / self._block_size
-            header = header | (padded_blocks << self._size_bits)
-            payload = struct.pack('B%ds' % (buf_len + padding_len - 1,),
+            payload = struct.pack('B%ds' % (len(blocks_buf),),
                                   header,
                                   blocks_buf)
         else:
-            buf_len = len(compressed_blocks_buf) + 1
-            buf_len += self._payload_multiple - buf_len % self._payload_multiple
             compressed_header = self._header_compressed_mask | header
-            payload = struct.pack('B%ds' % (buf_len - 1,),
+            payload = struct.pack('B%ds' % (len(compressed_blocks_buf),),
                                   compressed_header,
                                   compressed_blocks_buf)
         return payload
@@ -135,8 +116,8 @@ class MessageLayer(object):
         data_len = len(formatted_data)
         encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
 
-        key = hashlib.sha1(identifier).digest()[:16]
-        encrypter = AES.new(key)
+        key = hashlib.sha1(identifier).digest()
+        encrypter = ARC4.new(key)
 
         for i in range(num_vectors):
             vector_result = self._vector_provider.get_vector(tasks)
@@ -162,7 +143,7 @@ class MessageLayer(object):
             if blocks_encoded > 0:
                 task.execute_send(coded_vector)
             else:
-                self._vector_provider.repurpose_vector(vector)
+                self._vector_provider.repurpose_vector(cover_vector)
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
@@ -175,14 +156,12 @@ class MessageLayer(object):
         blocks_buf = payload[1:]
 
         compressed = header & self._header_compressed_mask != 0
-        padding = (header & self._header_padding_mask) >> self._size_bits
         message_len = 2**(header & self._header_size_mask)
 
         if compressed:
             blocks_buf = bz2.decompress(blocks_buf)
         else:
             payload_len = len(blocks_buf) - len(blocks_buf) % self._block_size
-            payload_len -= padding*self._block_size
             blocks_buf = blocks_buf[:payload_len]
 
         blocks = []
@@ -197,8 +176,8 @@ class MessageLayer(object):
 
         decoder = None
 
-        key = hashlib.sha1(identifier).digest()[:16]
-        decrypter = AES.new(key)
+        key = hashlib.sha1(identifier).digest()
+        decrypter = ARC4.new(key)
 
         tasks = self._task_database.lookup(identifier)
         random.shuffle(tasks)

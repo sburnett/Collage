@@ -41,3 +41,6 @@ class ExecutionContext(object):
 
     def println(self, message):
         self.add_snippet('println(%s)' % repr(message))
+
+    def quit(self):
+        self.add_snippet('DriverUtils.closeWindow();')

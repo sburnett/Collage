@@ -6,7 +6,7 @@
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
     onload="onWindowLoad()"
     onunload="onWindowClose()">
-    <browser id="drivenBrowser" type="content" onload="DriverUtils.onFrameLoad()" flex="1"/>
+    <browser id="drivenBrowser" type="content" flex="1"/>
     <button label="Close" onclick="window.close()"/>
 
     <script type="application/javascript;version=1.7" src="dojo_rpc_only.js"/>
