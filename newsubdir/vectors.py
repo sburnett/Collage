@@ -6,7 +6,7 @@ import time
 from collage.vectorlayer import Vector, EncodingError
 
 class OutguessVector(Vector):
-    def __init__(self, data, timeout=5):
+    def __init__(self, data, timeout=10):
         super(OutguessVector, self).__init__(data)
         self._timeout = timeout
         self._decoded_data = None

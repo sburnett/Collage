@@ -8,6 +8,8 @@ downloaded without regard to deniability.
 
 import sys
 from optparse import OptionParser
+import base64
+import time
 
 import flickrapi
 
@@ -16,10 +18,6 @@ from collage.messagelayer import MessageLayer
 from tasks import DirectFlickrTask
 from vectors import OutguessVector
 from providers import NullVectorProvider, DirectoryVectorProvider
-
-import time
-
-import pdb
 
 def auth_flickr():
     """Authenticate with Flickr using our api key and secret.
@@ -31,7 +29,7 @@ def auth_flickr():
     api_secret = '083b2c8757e2971f'
 
     flickr = flickrapi.FlickrAPI(api_key, api_secret)
-    (token, frob) = flickr.get_token_part_one(perms='write')
+    (token, frob) = flickr.get_token_part_one(perms='delete')
     if not token:
         raw_input('Press ENTER after you have authorized this program')
     flickr.get_token_part_two((token, frob))
@@ -41,7 +39,7 @@ def timestamper(message):
     sys.stderr.write('%f %s\n' % (time.time(), message))
 
 def main():
-    usage = 'usage: %s [options] <send|receive> <id>'
+    usage = 'usage: %s [options] <send|receive|delete> <id>'
     parser = OptionParser(usage=usage)
     parser.set_defaults()
     parser.add_option('-f', '--file',
@@ -72,8 +70,6 @@ def main():
     if args[0] == 'send':
         if options.directory is None:
             parser.error('Must specify a directory with JPEGs in it, to embed and upload.')
-
-        pdb.set_trace()
 
         vector_provider = DirectoryVectorProvider(OutguessVector,
                                                   options.directory,
@@ -108,6 +104,11 @@ def main():
                                      timestamper)
         data = message_layer.receive(args[1])
         sys.stdout.write(data)
+    elif args[0] == 'delete':
+        results = flickr.photos_search(user_id='me')
+        for photo in results[0]:
+            #if photo.attrib['title'] == base64.b64encode(args[1]):
+                flickr.photos_delete(photo_id=photo.attrib['id'])
     else:
         parser.error('Invalid action')
 
