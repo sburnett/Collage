@@ -136,29 +136,44 @@ class MessageLayer(object):
                 raise MessageLayerError('Unable to acquire enough vectors')
             (cover_vector, task) = vector_result
 
-            blocks_encoded = 1
-            while True:
+            def encode_vector(num_blocks):
                 blocks = []
-                for j in range(blocks_encoded):
+                for i in range(0, num_blocks):
                     blocks.append(encoder.next_block())
+
                 payload = self._prepare_payload(blocks, data_len)
                 encrypter = ARC4.new(key)
                 ciphertext = encrypter.encrypt(payload)
+
+                print 'Attempting to encode %d bytes' % (len(ciphertext),)
+
+                self._instrument('begin encode')
+                coded_vector = cover_vector.encode(ciphertext, key)
+                self._instrument('end encode')
+
+                return (len(ciphertext), coded_vector)
+
+            coded_vector = None
+            lower_bound = upper_bound = error_margin = 2
+            while True:
                 try:
-                    print 'Attempting to encode %d bytes' % (len(ciphertext),)
-
-                    self._instrument('begin encode')
-                    coded_vector = cover_vector.encode(ciphertext, key)
-                    self._instrument('end encode')
-
-                    current_len = len(ciphertext)
+                    (current_len, coded_vector) = encode_vector(upper_bound)
                 except vectorlayer.EncodingError:
                     break
                 else:
-                    blocks_encoded <<= 1
+                    lower_bound = upper_bound
+                    upper_bound *= 2
 
-            blocks_encoded >>= 1
-            if blocks_encoded > 0:
+            while upper_bound - lower_bound > error_margin:
+                current_size = lower_bound + (upper_bound - lower_bound)/2
+                try:
+                    (current_len, coded_vector) = encode_vector(current_size)
+                except vectorlayer.EncodingError:
+                    upper_bound = current_size
+                else:
+                    lower_bound = current_size
+
+            if coded_vector:
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
                 task.send(key, coded_vector)
                 if num_vectors == 0:
