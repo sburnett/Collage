@@ -3,11 +3,10 @@ from Crypto.Cipher import ARC4
 import bisect
 import struct
 import random
-from math import log
+from math import log, ceil
 import bz2
 
 import coder
-import snippets
 import vectorlayer
 
 import pdb
@@ -38,24 +37,22 @@ class MessageLayer(object):
     _header_compressed_mask = 0x80
     _header_size_mask = 0x7F
 
-    def __init__(self, vector_provider, block_size, block_id_bytes, snippet_dirs, task_mapping_size, snippet_params={}):
+    def __init__(self, vector_provider, block_size, max_unique_blocks, tasks, task_mapping_size, instrument=None):
         """Initialize a message, using a particular Vector for storing message chunks."""
 
         self._vector_provider = vector_provider
         self._block_size = block_size
-        self._block_id_bytes = block_id_bytes
+        self._block_id_bytes = int(ceil(log(max_unique_blocks, 2)/8))
 
         self._task_mapping_size = task_mapping_size
-        self._snippet_dirs = snippet_dirs
-        self._snippet_params = snippet_params
-        self.reload_task_database()
+        self.reload_task_database(tasks)
 
-    def reload_task_database(self):
-        all_snippets = snippets.load_snippets(self._snippet_dirs, self._snippet_params)
-        tasks = []
-        for (send_snippet, receive_snippet, can_embed_snippet) in all_snippets.values():
-            task = Task(send_snippet, receive_snippet, can_embed_snippet)
-            tasks.append(task)
+        if instrument is None:
+            self._instrument = lambda s: None
+        else:
+            self._instrument = instrument
+
+    def reload_task_database(self, tasks):
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
 
     def _sender_get_preamble_size(self, data_len):
@@ -107,8 +104,10 @@ class MessageLayer(object):
                                   compressed_blocks_buf)
         return payload
 
-    def send(self, identifier, data, num_vectors):
+    def send(self, identifier, data, num_vectors=0, send_ratio=1):
         """Send a message with an associated identifier."""
+
+        self._instrument('begin send')
     
         tasks = self._task_database.lookup(identifier)
 
@@ -117,9 +116,21 @@ class MessageLayer(object):
         encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
 
         key = hashlib.sha1(identifier).digest()
-        encrypter = ARC4.new(key)
+        
+        if num_vectors > 0:
+            vector_counter = 0
+        else:
+            bytes_sent = 0
+            total_bytes = data_len*send_ratio
 
-        for i in range(num_vectors):
+        while True:
+            if num_vectors > 0:
+                if vector_counter >= num_vectors:
+                    break
+                vector_counter += 1
+            elif bytes_sent >= total_bytes:
+                break
+
             vector_result = self._vector_provider.get_vector(tasks)
             if vector_result is None:
                 raise MessageLayerError('Unable to acquire enough vectors')
@@ -131,9 +142,16 @@ class MessageLayer(object):
                 for j in range(blocks_encoded):
                     blocks.append(encoder.next_block())
                 payload = self._prepare_payload(blocks, data_len)
+                encrypter = ARC4.new(key)
                 ciphertext = encrypter.encrypt(payload)
                 try:
-                    coded_vector = cover_vector.encode(ciphertext)
+                    print 'Attempting to encode %d bytes' % (len(ciphertext),)
+
+                    self._instrument('begin encode')
+                    coded_vector = cover_vector.encode(ciphertext, key)
+                    self._instrument('end encode')
+
+                    current_len = len(ciphertext)
                 except vectorlayer.EncodingError:
                     break
                 else:
@@ -141,9 +159,15 @@ class MessageLayer(object):
 
             blocks_encoded >>= 1
             if blocks_encoded > 0:
-                task.execute_send(coded_vector)
+                print 'Uploading photo with %d encoded bytes' % (current_len,)
+                task.send(key, coded_vector)
+                if num_vectors == 0:
+                    bytes_sent += current_len
+                    print 'We have sent %d of %d bytes' % (bytes_sent, total_bytes)
             else:
                 self._vector_provider.repurpose_vector(cover_vector)
+
+        self._instrument('end send')
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
@@ -174,24 +198,32 @@ class MessageLayer(object):
     def receive(self, identifier):
         """Receive a message with an associate identifier."""
 
+        self._instrument('begin receive')
+
         decoder = None
 
         key = hashlib.sha1(identifier).digest()
-        decrypter = ARC4.new(key)
 
         tasks = self._task_database.lookup(identifier)
         random.shuffle(tasks)
 
-        for task in tasks:
-            vectors = task.execute_receive()
+        bytes_decoded = 0
 
-            for vector in vectors:
-                if vector.is_encoded():
-                    ciphertext = vector.decode()
+        for task in tasks:
+            for vector in task.receive(key):
+                if vector.is_encoded(key):
+                    self._instrument('begin decode')
+                    ciphertext = vector.decode(key)
+                    self._instrument('end decode')
+
                     try:
+                        decrypter = ARC4.new(key)
                         payload = decrypter.decrypt(ciphertext)
                     except:
                         continue
+
+                    bytes_decoded += len(payload)
+                    print 'Decoded %d bytes' % (bytes_decoded,)
 
                     (blocks, data_len) = self._get_blocks(payload)
 
@@ -206,7 +238,7 @@ class MessageLayer(object):
                     except ValueError:
                         pass
                     else:
-                        pdb.set_trace()
+                        self._instrument('end receive')
                         return self._decode_data(data)
 
         raise MessageLayerError('Could not receive message using available tasks')
@@ -214,23 +246,17 @@ class MessageLayer(object):
 class Task(object):
     """A type for Collage tasks. This is used in the task database."""
 
-    def __init__(self, send_snippet, receive_snippet, can_embed_snippet):
-        self._send_snippet = send_snippet
-        self._receive_snippet = receive_snippet
-        self._can_embed_snippet = can_embed_snippet
+    def send(self, id, vector):
+        raise NotImplementedError
 
-    def execute_send(self, vector):
-        self._send_snippet.execute({'data': vector.get_data()})
+    def receive(self, id):
+        raise NotImplementedError
 
-    def execute_receive(self):
-        return self._receive_snippet.execute({})
-
-    def execute_can_embed(self, vector):
-        return self._can_embed_snippet.execte({'vector': vector})
+    def can_embed(self, id, vector):
+        raise NotImplementedError
 
     def _hash(self):
-        code = self._receive_snippet._code + self._send_snippet._code
-        return hashlib.sha1(code).digest()
+        return hashlib.sha1(hash(self)).digest()
 
     def __cmp__(self, other):
         return cmp(self._hash(), other._hash())

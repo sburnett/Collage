@@ -12,22 +12,23 @@ class Vector(object):
     """An abstract class for an immutable vector; encoding and decoding should
     create new copies of the vector."""
 
-    def __init__(self, data):
+    def __init__(self, data, properties={}):
         self._data = data
+        self._properties = dict(properties)
 
     def get_data(self):
         return self._data
 
-    def encode(self, data):
-        raise NotImplementedError
-
-    def decode(self):
-        raise NotImplementedError
-
-    def is_encoded(self):
-        raise NotImplementedError
-
     def get_property(self, key):
+        return self._properties[key]
+
+    def encode(self, data, key):
+        raise NotImplementedError
+
+    def decode(self, key):
+        raise NotImplementedError
+
+    def is_encoded(self, key):
         raise NotImplementedError
 
 class VectorProvider(object):

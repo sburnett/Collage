@@ -26,9 +26,9 @@ class Snippet(object):
         my_env.update(params)
         return eval(self._compiled, my_env)
 
-send_snippet = 'send_vector(data)'
-receive_snippet = 'receive_vector()'
-can_embed_snippet = 'can_embed()'
+send_snippet = 'send_vector(id, vector)'
+receive_snippet = 'receive_vector(id)'
+can_embed_snippet = 'can_embed(id, vector)'
 
 def load_snippets(directories, params):
     """Load all primitive snippets in a set of directories, and
