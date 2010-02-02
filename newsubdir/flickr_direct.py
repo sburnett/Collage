@@ -18,6 +18,7 @@ from collage.messagelayer import MessageLayer
 from tasks import DirectFlickrTask
 from vectors import OutguessVector
 from providers import NullVectorProvider, DirectoryVectorProvider
+from instruments import timestamper
 
 def auth_flickr():
     """Authenticate with Flickr using our api key and secret.
@@ -34,9 +35,6 @@ def auth_flickr():
         raw_input('Press ENTER after you have authorized this program')
     flickr.get_token_part_two((token, frob))
     return flickr
-
-def timestamper(message):
-    sys.stderr.write('%f %s\n' % (time.time(), message))
 
 def main():
     usage = 'usage: %s [options] <send|receive|delete> <id>'

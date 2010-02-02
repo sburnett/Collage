@@ -5,7 +5,7 @@ from collage.vectorlayer import VectorProvider, EncodingError
 
 class NullVectorProvider(VectorProvider):
     def _find_vector(self, task):
-        raise None
+        return None
 
 class DirectoryVectorProvider(VectorProvider):
     def __init__(self, VectorClass, directory, extensions=None):
@@ -23,3 +23,14 @@ class DirectoryVectorProvider(VectorProvider):
             return None
         else:
             return random.choice(self._vectors)
+
+class UniformTweetProvider(VectorProvider):
+    def __init__(self, VectorClass):
+        self._VectorClass = VectorClass
+        VectorProvider.__init__(self)
+        self._vectors.append(self._VectorClass('a'*155))
+
+    def _find_vector(self, task):
+        vector = self._VectorClass('a'*155)
+        self._vectors.append(vector)
+        return vector

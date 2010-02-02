@@ -39,3 +39,20 @@ class DirectFlickrTask(Task):
 
     def can_embed(self, id, data):
         return True
+
+class DirectTwitterTask(Task):
+    def __init__(self, twitter, username, VectorClass):
+        self._twitter = twitter
+        self._username = username
+        self._VectorClass = VectorClass
+
+    def send(self, id, vector):
+        self._twitter.PostUpdate(vector.get_data())
+
+    def receive(self, id):
+        results = self._twitter.GetUserTimeline(self._username)
+        for status in results:
+            yield self._VectorClass(status.text)
+
+    def can_embed(self, id, data):
+        return True
