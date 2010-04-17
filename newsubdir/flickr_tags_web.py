@@ -15,7 +15,7 @@ from selenium.firefox.webdriver import WebDriver
 
 from collage.messagelayer import MessageLayer
 
-from tasks import TagPairFlickrTask, WebTagPairFlickrTask
+from tasks import WebTagPairFlickrTask
 from vectors import OutguessVector
 from providers import NullVectorProvider, DirectoryVectorProvider
 from instruments import timestamper
