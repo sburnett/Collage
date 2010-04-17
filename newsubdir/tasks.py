@@ -5,11 +5,14 @@ import random
 import os
 import os.path
 import time
+import sys
 
 from collage.messagelayer import Task
 from collage.support.driverutils import ExecutionContext
 
 from vectors import OutguessVector, SimulatedVector
+
+from selenium.common.exceptions import NoSuchElementException
 
 class DirectFlickrTask(Task):
     def __init__(self, flickr):
@@ -83,163 +86,104 @@ class TagPairFlickrTask(Task):
         return True
 
 class WebTagPairFlickrTask(Task):
-    def __init__(self, flickr, tags):
-        self._flickr = flickr
+    def __init__(self, driver, tags):
+        self._driver = driver
         self._tags = tags
 
-    def upload_progress(self, progress, done):
-        if done:
-            print 'Done uploading'
-        else:
-            print '%d%% done' % progress
-
     def send(self, id, vector):
-        photo = tempfile.NamedTemporaryFile(suffix='.jpg')
-        photo.write(vector.get_data())
-        photo.flush()
-        title = base64.b64encode(id)
-
-        self._flickr.upload(filename=photo.name, title=title,
-                            description='', tags=' '.join(self._tags),
-                            callback=self.upload_progress)
-
-    search_snippet = \
-        '''
-		DriverUtils.loadUrl("http://www.flickr.com");
-
-		// Enter search terms into search box and click Search button
-		var divSearch = DriverUtils.getElementById("featured-search");
-		var inputFields = divSearch.getElementsByTagName("form")[0].getElementsByTagName("input");
-		var textField = null, button = null;
-		for(var k in inputFields) {
-			if(inputFields[k].getAttribute("name") == "q")
-				textField = inputFields[k];
-			else if(inputFields[k].getAttribute("type") == "submit")
-				button = inputFields[k];
-		}
-
-		textField.setAttribute("value", tags.join(" "));
-		DriverUtils.clickElement(button);
-        DriverUtils.waitToLoad();
-
-		// Change from keyword search to tag search
-		var tagsBox = DriverUtils.getElementById("mtags");
-		clickElement(tagsBox);
-		inputFields = DriverUtils.getElementsByTagName("input");
-		for(var k in inputFields) {
-			if(inputFields[k].getAttribute("type") == "submit"
-					&& inputFields[k].getAttribute("class") == "Butt")
-				button = inputFields[k];
-		}
-		DriverUtils.clickElement(button);
-
-		// Now go through images on every page
-		var resultBoxCounter = 0;
-		while(true) {
-			// Find next image result on this page.
-			var resultBoxes = DriverUtils.getElementsByTagName("td");
-			var k = 0;
-			var rbc = -1;
-			for(var l in resultBoxes)
-				if(resultBoxes[l].getAttribute("class") != "DetailPic")
-					continue;
-				else {
-					k++;
-					if(k > resultBoxCounter) {
-						rbc = l;
-						break;
-					}
-				}
-
-			if(rbc < 0) {
-				// If we have visited all results, try to visit the next page.
-				var links = DriverUtils.getElementsByTagName("a");
-				var foundNext = false;
-				for(var k in links)
-					if(links[k].getAttribute("class") == "Next") {
-						DriverUtils.clickElement(links[k]);
-						foundNext = true;
-						break;
-					}
-
-				if(!foundNext)
-					break;
-				else {
-					resultBoxCounter = 0;
-					continue;
-				}
-			}
-
-			resultBoxCounter++;
-
-			// Click the image
-			var img = resultBoxes[rbc].getElementsByTagName("img")[0];
-			DriverUtils.clickElement(img);
-            DriverUtils.waitToLoad();
-
-			// Click the Zoom button, if it is available
-			var zoom = DriverUtils.getElementById("photo_gne_button_zoom");
-			if(zoom != null) {
-				DriverUtils.clickElement(zoom);
-                DriverUtils.waitToLoad();
-
-				// Click the "Original size" button if available
-				var tds = DriverUtils.getElementsByTagName("td");
-				var re = /Original/;
-				var clickedFullSize = false;
-				for(var l in tds) {
-					var links = tds[l].getElementsByTagName("a");
-					for(var m in links) {
-						if(re.test(links[m].firstChild.nodeValue)) {
-							DriverUtils.clickElement(links[m].firstChild);
-							DriverUtils.waitToLoad();
-							clickedFullSize = true;
-						}
-
-						if(clickedFullSize)
-							break;
-					}
-
-					if(clickedFullSize)
-						break;
-				}
-
-				// Now save the image from the cache.
-				var imgs = DriverUtils.getElementsByTagName("img");
-				for(var l in imgs) {
-					if(imgs[l].nextSibling != null
-							&& imgs[l].nextSibling.nodeName == "BR") {
-						var imgData = DriverUtils.getFromCache(imgs[l].getAttribute("src"));
-					}
-				}
-
-				DriverUtils.goBack();
-				yield imgData;
-
-				if(clickedFullSize) {
-                    DriverUtils.goBack();
-				}
-			}
-
-			frame.goBack();
-        }
-        '''
+        raise NotImplementedError("Use photo donation tool")
 
     def receive(self, id):
         key = base64.b64encode(id)
 
-        ctx = ExecutionContext()
-        ctx.load_url('http://www.flickr.com')
-        # By default, search top 100 photos
-        results = self._flickr.photos_search(extras='url_o', tags=','.join(self._tags), tag_mode='any')
+        d = self._driver
 
-        for photo in results[0]:
-            if 'title' in photo.attrib and photo.attrib['title'] == key:
+        ###########
+        # Main page
+        
+        d.get('http://www.flickr.com')
+
+        search_field = d.find_element_by_xpath('//input[@name="q"]')
+        search_field.send_keys(' '.join(self._tags))
+        
+        search_button = d.find_element_by_xpath('//form/input[@class="Butt"]')
+        search_button.click()
+
+        #####################
+        # Search results page
+        
+        tags_links = d.find_elements_by_partial_link_text('Tags Only')
+        if len(tags_links) > 0:
+            tags_links[0].click()
+
+        thumb_path = '(//img[@class="pc_img"])[%d]'
+
+        pages_remaining = True
+        while pages_remaining:
+            thumbs_remaining = True
+            idx = 0
+            while thumbs_remaining:
+                idx += 1
+
                 try:
-                    data = urllib.urlopen(photo.attrib['url_o']).read()
+                    thumb = d.find_element_by_xpath(thumb_path % idx)
+                except NoSuchElementException:
+                    thumbs_remaining = False
+                    continue
+
+                thumb.click()
+
+                ####################
+                # Photo summary page
+
+                try:
+                    zoom_button = d.find_element_by_id('photo_gne_button_zoom')
+                except NoSuchElementException:
+                    d.back()
+                    continue
+
+                zoom_button.click()
+
+                ##################
+                # Photo sizes page
+
+                clicked_original = False
+
+                # If we're not on the "original" size, then
+                # try to click the "original" link, if it exists
+                strong_text = d.find_element_by_xpath('//td/strong')
+                current_text = strong_text.get_text()
+                if current_text != 'Original':
+                    links = d.find_elements_by_xpath('//td/a')
+                    for link in links:
+                        if link.get_text() == 'Original':
+                            link.click()
+                            clicked_original = True
+
+                # Now check to see if we are in fact on the
+                # "original" size. If we are, then download
+                # the photo. Otherwise, go back to the previous page
+                strong_text = d.find_element_by_xpath('//td/strong')
+                current_text = strong_text.get_text()
+                if current_text == 'Original':
+                    img = d.find_element_by_xpath('//p/img')
+                    src = img.get_attribute('src')
+
+                    data = d.get_url_from_cache(src)
                     yield OutguessVector(data)
-                except Exception as e:
-                    print e.message
+
+                if clicked_original:
+                    d.back()   # Back to first size photo page
+                d.back()       # Back to photo summary page
+                d.back()       # Back to search results page
+        
+            try:
+                next_link = d.find_element_by_xpath('//a[@class="Next"]')
+            except NoSuchElementException:
+                pages_remaining = False     # There are no results remaining
+                continue
+
+            next_link.click()   # On to the next results page
 
     def can_embed(self, id, data):
         return True
@@ -281,21 +225,18 @@ class SimulatedTask(Task):
             open(filename, 'w').write(vector.get_data())
             traffic = len(vector.get_data()) + self._traffic_overhead
             tottime = traffic/self._upload + random.gauss(self._time_overhead, self._time_deviation)
-            time.sleep(tottime)
+            sys.stderr.write('%f %s\n' % (time.time(), 'send traffic %d time %d' % (traffic, tottime)))
 
     def receive(self, id):
         msgs = []
-        traffic = 0
         for i in range(self._vectors_per_task):
             files = filter(lambda f: os.path.splitext(f)[1] == '.vector', os.listdir(self._storage_dir))
             filename = random.choice(files)
             data = open(os.path.join(self._storage_dir, filename), 'r').read()
-            traffic += len(data)
+            traffic = len(data) + self._traffic_overhead
+            tottime = traffic/self._download + random.gauss(self._time_overhead, self._time_deviation)
+            sys.stderr.write('%f %s\n' % (time.time(), 'receive traffic %d time %d' % (traffic, tottime)))
             yield SimulatedVector(data, 0.0)
-
-        traffic += self._traffic_overhead
-        tottime = traffic/self._download + random.gauss(self._time_overhead, self._time_deviation)
-        time.sleep(tottime)
 
     def can_embed(self, id, data):
         return True

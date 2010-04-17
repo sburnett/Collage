@@ -12,8 +12,6 @@ import base64
 import time
 import random
 
-import flickrapi
-
 from collage.messagelayer import MessageLayer
 
 from tasks import SimulatedTask
@@ -119,8 +117,7 @@ def main():
                                      max_unique_blocks,
                                      tasks,
                                      options.mapping_size,
-                                     timestamper,
-                                     256)
+                                     timestamper)
         if options.num_vectors is not None:
             message_layer.send(args[1], data, num_vectors=options.num_vectors)
         elif options.send_ratio is not None:
