@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import sys
-import xmlrpclib
 from optparse import OptionParser
+
+from rpc import retrieve
 
 def main():
     usage = 'usage: %s [options] <key>'
@@ -14,9 +15,8 @@ def main():
     if len(args) != 1:
         parser.error('Need to specify key')
 
-    proxy = xmlrpclib.ServerProxy(options.url)
-    data = proxy.retrieve(args[0])
-    
+    data = retrieve(options.url, args[0])
+
     if data == '':
         sys.stderr.write('No data available\n')
         sys.exit(1)

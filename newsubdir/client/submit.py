@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import sys
-import xmlrpclib
 from optparse import OptionParser
+
+from rpc import submit
 
 def main():
     usage = 'usage: %s [options] <application>'
@@ -16,15 +17,12 @@ def main():
     if len(args) != 1:
         parser.error('Need to specify application name')
 
-    proxy = xmlrpclib.ServerProxy(options.url)
-
-    data = xmlrpclib.Binary(sys.stdin.read())
+    data = sys.stdin.read()
     application = args[0]
     attrs = []
     for attr in options.attributes:
         attrs.append(tuple(attr.split(':', 1)))
-    key = proxy.donate(data, application, attrs, options.expiration)
-    
+    key = submit(options.url, data, application, attrs, options.expiration)
     sys.stdout.write(key)
 
 if __name__ == '__main__':
