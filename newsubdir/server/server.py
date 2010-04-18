@@ -42,8 +42,8 @@ def main():
     parser.add_option('-p', '--port', dest='port', action='store', type='int', help='Server port')
     (options, args) = parser.parse_args()
 
-    if len(args) != 2:
-        parser.error('Need to specify database directory and application name')
+    if len(args) != 1:
+        parser.error('Need to specify database directory')
 
     (donate, retrieve) = prep_funcs(args[0])
 

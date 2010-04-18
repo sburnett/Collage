@@ -54,6 +54,10 @@ class DonaterDatabase(DonationDatabase):
            then it is deleted from disk. The caller is given back a
            random key, which must be given to collect the vector."""
 
+        cur = self._conn.execute('''SELECT name FROM applications WHERE name = ?''', (application,))
+        if cur.fetchone() is None:
+            return 'Invalid application name'
+
         secretkey = '%.16x' % random.randint(0, sys.maxint)
         expiration = min(expiration, self._max_expiration)
         expire_time = (datetime.datetime.utcnow() + expiration).isoformat()

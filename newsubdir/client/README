@@ -2,9 +2,10 @@ Collage Flickr Donation Client
 ==============================
 
 This program allows you to upload photos to your Flickr photo album.
-Unlike traditional Flickr uploaders, this program embeds small amounts
+Unlike other Flickr uploaders, this program embeds small amounts
 of additional content into your photos before uploading them; in doing
-so, you directly help circumvent Internet censorship.
+so, your photos help circumvent Internet censorship. For more details,
+see http://gtnoise.net/collage.
 
 Requirements
 ------------
