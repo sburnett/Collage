@@ -93,6 +93,78 @@ class DonaterDatabase(DonationDatabase):
         else:
             return None
 
+class UploaderDatabase(DonationDatabase):
+    def __init__(self, db_dir):
+        super(UploaderDatabase, self).__init__(db_dir)
+
+    def collect(self, attributes):
+        """Return a list of vectors that are ready for to be
+        uploaded, and are compatible with all of a set of attributes."""
+        
+        cur = self._conn.execute('''SELECT rowid FROM vectors
+                                    WHERE done = 1''')
+        vec_sec = set()
+        for row in cur:
+            vec_sec.add(row['rowid'])
+
+        vector_ids = [vec_sec]
+
+        for (key, value) in attributes:
+            vec_set = set()
+            cur = self._conn.execute('''SELECT vector_id FROM metadata,vectors
+                                        WHERE metadata.key = ?
+                                        AND value = ?
+                                        AND done = 1''',
+                                    (key, value))
+            for row in cur:
+                vec_set.add(row['vector_id'])
+
+            vector_ids.append(vec_set)
+
+        keys = []
+        for rowid in reduce(lambda a, b: a & b, vector_ids):
+            cur = self._conn.execute("""SELECT key FROM vectors
+                                        WHERE rowid = ?""",
+                                     (rowid,))
+            row = cur.fetchone()
+
+            if row is not None:
+                keys.append(row['key'])
+
+        return keys
+
+    def get_attributes(self, key):
+        attrs = []
+
+        cur = self._conn.execute('''SELECT metadata.key,value
+                                    FROM metadata,vectors
+                                    WHERE vector_id = vectors.rowid
+                                    AND vectors.key = ?''',
+                                 (key,))
+        for row in cur:
+            attrs.append((row['key'], row['value']))
+
+        return attrs
+
+    def delete(self, key):
+        """Erase vector matching a key."""
+
+        row = self._conn.execute('''SELECT rowid FROM vectors
+                                    WHERE key = ?''', (key,)).fetchone()
+        if row is None:
+            return
+
+        self._conn.execute('''DELETE FROM metadata
+                              WHERE vector_id = ?''', (row['rowid'],))
+        self._conn.execute('''DELETE FROM vectors
+                              WHERE rowid = ?''', (row['rowid'],))
+        try:
+            os.unlink(self.get_filename(key))
+        except OSError:
+            pass
+
+        self._conn.commit()
+
 def AppDatabase(DonationDatabase):
     def __init__(self, db_dir, application):
         super(AppDatabase, self).__init__(db_dir)
@@ -116,7 +188,13 @@ def AppDatabase(DonationDatabase):
         """Return a list of vectors that are ready for to be
         encoded, and are compatible with all of a set of attributes."""
         
-        vector_ids = []
+        cur = self._conn.execute('''SELECT rowid FROM vectors
+                                    WHERE done = 0''')
+        vec_sec = set()
+        for row in cur:
+            vec_sec.add(row['rowid'])
+
+        vector_ids = [vec_sec]
 
         for (key, value) in attributes:
             vec_set = set()

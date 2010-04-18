@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from bottle import route, view
 import bottle
 import flickrapi
