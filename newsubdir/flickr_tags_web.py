@@ -39,7 +39,6 @@ def main():
     max_unique_blocks = 2**16
     tasks_per_message = 3
 
-
     if args[0] == 'send':
         parser.error('Send action not implemented. Use photo donation tool.')
     elif args[0] == 'receive':
