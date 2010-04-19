@@ -14,9 +14,6 @@ from instruments import timestamper
 
 import proxy_common as common
 
-NEWS_PERIOD = datetime.timedelta(1,)
-UPDATE_PERIOD = datetime.timedelta(1,)
-
 def send_news(address, data, database, tags, send_ratio, killswitch):
     tag_pairs = [(a, b) for a in tags for b in tags if a < b]
     tasks = map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs)

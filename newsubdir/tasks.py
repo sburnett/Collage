@@ -189,8 +189,7 @@ class WebTagPairFlickrTask(Task):
         return True
 
 class DonateTagPairFlickrTask(Task):
-    def __init__(self, flickr, tags, database):
-        self._flickr = flickr
+    def __init__(self, tags, database):
         self._tags = tags
         self._db = database
 
