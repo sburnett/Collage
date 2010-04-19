@@ -36,11 +36,20 @@ var DriverUtils = new function() {
         return this.browser.contentDocument.getElementById(id);
     };
 
+    this.getElementsByTagName = function(tag) {
+        return this.browser.contentDocument.getElementsByTagName(tag);
+    };
+
     this.loadUrl = function(url) {
         this.contentLoaded = false;
         this.browser.loadURI(url, this.browser.LOAD_FLAGS_NONE);
         this.waitToLoad();
     };
+
+    this.goBack = function() {
+        this.browser.goBack();
+        this.waitToLoad();
+    }
 
     this.setElementAttribute = function(id, key, value) {
         el = this.browser.contentDocument.getElementById(id);

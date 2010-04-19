@@ -2,6 +2,7 @@ import math
 import random
 import struct
 import sys
+import numpy as np
 
 import pdb
 
@@ -58,30 +59,32 @@ class Encoder(object):
         self.num_message_blocks = int(math.ceil(float(len(data))/self.block_size))
 
         # Create message blocks
-        message_blocks = []
-        for i in range(0, self.num_message_blocks):
-            message_block = struct.pack('%ds' % self.block_size, data[i*self.block_size:])
-            message_blocks.append(map(ord, message_block))
+        buffer = struct.pack('%ds' % (self.block_size*self.num_message_blocks), data)
+        buffer_array = np.frombuffer(buffer, dtype='B1')
+        message_blocks = buffer_array.reshape((self.num_message_blocks, self.block_size))
 
         # Generate auxiliary blocks
         self.rand.seed(aux_seed)
-        num_aux = int(math.floor(0.55*q*epsilon*len(message_blocks)))
-        aux_blocks = []
-        for i in range(0, num_aux):
-            aux_blocks.append(xor_blocks(fsample(self.rand, message_blocks, q)))
+        self.num_aux_blocks = int(math.floor(0.55*q*epsilon*self.num_message_blocks))
+        aux_blocks = np.ndarray((self.num_aux_blocks, self.block_size), dtype='B1')
+        for i in range(self.num_aux_blocks):
+            indices = fsample(self.rand, range(0, self.num_message_blocks), q)
+            aux_blocks[i] = np.bitwise_xor.reduce(message_blocks.take(indices, axis=0))
 
         # Composite blocks
-        self.blocks = message_blocks + aux_blocks
+        self.blocks = np.append(message_blocks, aux_blocks, axis=0)
+        self.num_blocks = self.num_message_blocks + self.num_aux_blocks
 
-        print "Message blocks: %d" % len(message_blocks)
-        print "Aux blocks: %d" % len(aux_blocks)
+        #print "Message blocks: %d" % self.num_message_blocks
+        #print "Aux blocks: %d" % self.num_aux_blocks
 
     def _get_block(self, id):
         self.rand.seed(id)
         degree = choose_degree(self.rand)
-        composite_blocks = fsample(self.rand, self.blocks, degree)
-        check_data = ''.join(map(chr, xor_blocks(composite_blocks)))
-        return struct.pack('%s%ds' % (self.id_flag, len(check_data)), id, check_data)
+        indices = fsample(self.rand, range(self.num_blocks), degree)
+        composite_blocks = self.blocks.take(indices, axis=0)
+        check_block = np.bitwise_xor.reduce(composite_blocks, axis=0).tostring()
+        return struct.pack('%s%ds' % (self.id_flag, len(check_block)), id, check_block)
 
     def next_block(self):
         block = self._get_block(self.current_block_id)
@@ -199,12 +202,12 @@ def main():
     contents = open(sys.argv[1], 'rb').read()
     block_size = 8
 
-    encoder = Encoder(contents, block_size)
-    num_blocks = encoder.num_message_blocks
+    encoder = Encoder(contents, block_size, 2)
+    num_blocks = encoder.num_blocks
 
     print 'Number of message blocks: %d' % num_blocks
 
-    decoder = Decoder(block_size, len(contents))
+    decoder = Decoder(block_size, 2, len(contents))
     num_fetched = 0
     while num_fetched < num_blocks:
         decoder.process_block(encoder.next_block())

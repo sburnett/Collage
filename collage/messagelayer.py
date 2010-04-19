@@ -19,13 +19,13 @@ class MessageLayer(object):
     several parameters to this layer to use it in your application.
     
     Details not present in the paper:
-    * Message sizes are powers of 2; This layer transparently handles extending
+    * Message sizes are powers of 2; This class transparently handles extending
         messages to the next power of 2 if necessary, so application developers
         need not worry about this.
     * Erasure code block sizes are also powers of 2.
-    * The message format is as follows: the message is padded with zeroes to the
-        next power of two, including the padding header. The padding header contains
-        the length of the padding appended to the message."""
+    * The message format is as follows: the message is padded with zeroes to
+        the next power of two, including the padding header. The padding header
+        contains the length of the padding appended to the message."""
 
     _int_bytes = struct.calcsize('I')
     _short_bytes = struct.calcsize('H')
@@ -37,8 +37,10 @@ class MessageLayer(object):
     _header_compressed_mask = 0x80
     _header_size_mask = 0x7F
 
-    def __init__(self, vector_provider, block_size, max_unique_blocks, tasks, task_mapping_size, instrument=None):
-        """Initialize a message, using a particular Vector for storing message chunks."""
+    def __init__(self, vector_provider, block_size, max_unique_blocks,
+                 tasks, task_mapping_size, instrument=None, error_margin=2):
+        """Initialize a message, using a particular Vector
+            for storing message chunks."""
 
         self._vector_provider = vector_provider
         self._block_size = block_size
@@ -51,6 +53,8 @@ class MessageLayer(object):
             self._instrument = lambda s: None
         else:
             self._instrument = instrument
+
+        self._error_margin = error_margin
 
     def reload_task_database(self, tasks):
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
@@ -122,6 +126,7 @@ class MessageLayer(object):
         else:
             bytes_sent = 0
             total_bytes = data_len*send_ratio
+            self._instrument('will upload %d bytes' % total_bytes)
 
         while True:
             if num_vectors > 0:
@@ -133,6 +138,8 @@ class MessageLayer(object):
 
             vector_result = self._vector_provider.get_vector(tasks)
             if vector_result is None:
+                self._instrument('end send')
+                self._instrument('send failure')
                 raise MessageLayerError('Unable to acquire enough vectors')
             (cover_vector, task) = vector_result
 
@@ -148,13 +155,17 @@ class MessageLayer(object):
                 print 'Attempting to encode %d bytes' % (len(ciphertext),)
 
                 self._instrument('begin encode')
-                coded_vector = cover_vector.encode(ciphertext, key)
-                self._instrument('end encode')
+                try:
+                    coded_vector = cover_vector.encode(ciphertext, key)
+                except vectorlayer.EncodingError:
+                    raise vectorlayer.EncodingError
+                finally:
+                    self._instrument('end encode')
 
                 return (len(ciphertext), coded_vector)
 
             coded_vector = None
-            lower_bound = upper_bound = error_margin = 2
+            lower_bound = upper_bound = 2
             while True:
                 try:
                     (current_len, coded_vector) = encode_vector(upper_bound)
@@ -164,7 +175,7 @@ class MessageLayer(object):
                     lower_bound = upper_bound
                     upper_bound *= 2
 
-            while upper_bound - lower_bound > error_margin:
+            while upper_bound - lower_bound > self._error_margin:
                 current_size = lower_bound + (upper_bound - lower_bound)/2
                 try:
                     (current_len, coded_vector) = encode_vector(current_size)
@@ -174,6 +185,7 @@ class MessageLayer(object):
                     lower_bound = current_size
 
             if coded_vector:
+                self._instrument('upload %d bytes in %d byte cover' % (current_len, len(coded_vector.get_data())))
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
                 task.send(key, coded_vector)
                 if num_vectors == 0:
@@ -183,6 +195,7 @@ class MessageLayer(object):
                 self._vector_provider.repurpose_vector(cover_vector)
 
         self._instrument('end send')
+        self._instrument('send success')
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
@@ -238,6 +251,7 @@ class MessageLayer(object):
                         continue
 
                     bytes_decoded += len(payload)
+                    self._instrument('decoded %d bytes from %d byte cover' % (bytes_decoded, len(vector.get_data())))
                     print 'Decoded %d bytes' % (bytes_decoded,)
 
                     (blocks, data_len) = self._get_blocks(payload)
@@ -254,8 +268,11 @@ class MessageLayer(object):
                         pass
                     else:
                         self._instrument('end receive')
+                        self._instrument('receive success')
                         return self._decode_data(data)
 
+        self._instrument('end_receive')
+        self._instrument('receive failure')
         raise MessageLayerError('Could not receive message using available tasks')
         
 class Task(object):
@@ -271,7 +288,7 @@ class Task(object):
         raise NotImplementedError
 
     def _hash(self):
-        return hashlib.sha1(hash(self)).digest()
+        return hashlib.sha1(str(hash(self))).digest()
 
     def __cmp__(self, other):
         return cmp(self._hash(), other._hash())
