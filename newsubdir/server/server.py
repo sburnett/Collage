@@ -22,16 +22,21 @@ def prep_funcs(db_dir):
         else:
             return xmlrpclib.Binary(data)
 
-    return (donate, retrieve)
+    def update_attributes(*args):
+        db.update_attributes(*args)
+        return ''
+
+    return (donate, retrieve, update_attributes)
 
 def handle_cgi():
     db_dir = '/tmp/vectors'
 
-    (donate, retrieve) = prep_funcs(db_dir)
+    (donate, retrieve, update_attributes) = prep_funcs(db_dir)
 
     handler = CGIXMLRPCRequestHandler()
     handler.register_function(donate)
     handler.register_function(retrieve)
+    handler.register_function(update_attributes)
     handler.handle_request()
 
 def main():
@@ -45,11 +50,12 @@ def main():
     if len(args) != 1:
         parser.error('Need to specify database directory')
 
-    (donate, retrieve) = prep_funcs(args[0])
+    (donate, retrieve, update_attributes) = prep_funcs(args[0])
 
     server = SimpleXMLRPCServer((options.host, options.port))
     server.register_function(donate, 'donate')
     server.register_function(retrieve, 'retrieve')
+    server.register_function(update_attributes, 'update_attributes')
     server.serve_forever()
 
 if __name__ == '__main__':

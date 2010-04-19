@@ -6,13 +6,15 @@ import flickrapi
 
 import rpc
 
+bottle.debug(True)
+
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
 
 flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'http://127.0.0.1:8000'
-APPLICATION_NAME = 'test'
+APPLICATION_NAME = 'proxy'
 
 @route('/')
 def index():
@@ -26,13 +28,18 @@ def index():
 def login():
     return dict(login_url=flickr.web_login_url(perms='write'))
 
+@route('/logout')
+def logout():
+    bottle.response.set_cookie('token', '', path='/', expires=-3600)
+    bottle.response.set_cookie('userid', '', path='/', expires=-3600)
+    bottle.redirect('/')
+
 @route('/upload')
 @view('upload')
 def upload():
     return dict()
 
-@route('/process', method='POST')
-@view('process')
+@route('/upload', method='POST')
 def process():
     if 'token' not in bottle.request.COOKIES:
         bottle.redirect('/login')
@@ -40,24 +47,43 @@ def process():
         bottle.redirect('/upload')
     else:
         title = bottle.request.POST.get('title', '').strip()
-        vector = bottle.request.POST.get('vector').file.read()
+        uploaded = bottle.request.POST.get('vector') 
+        if uploaded == '':
+            return bottle.template('upload', error='Must upload photo')
+        vector = uploaded.file.read()
         tags = bottle.request.POST.get('tags', '').strip().split()
         expiration = int(bottle.request.POST.get('expiration', '').strip())
         token = bottle.request.COOKIES['token']
+        userid = bottle.request.COOKIES['userid']
 
         attributes = map(lambda tag: ('tag', tag), tags)
         attributes.append(('title', title))
         attributes.append(('token', token))
+        attributes.append(('userid', userid))
 
         rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
 
-        return {'expiration': expiration}
+        return bottle.template('process', expiration=expiration)
 
 @route('/callback')
 def callback():
     frob = bottle.request.GET['frob']
     token = flickr.get_token(frob)
+
+    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    try:
+        response = f.auth_checkToken()
+    except flickrapi.FlickrError:
+        bottle.redirect('/login')
+
+    userid = response.find('auth').find('user').attrib['nsid']
+
+    print 'Updating: %s, %s' % (userid, token)
+
+    rpc.update_attributes(DONATION_SERVER, 'userid', userid, 'token', token)
+
     bottle.response.set_cookie('token', token, path='/')
+    bottle.response.set_cookie('userid', userid, path='/')
     bottle.redirect('/')
 
-bottle.run(host='localhost', port=8080)
+bottle.run(host='localhost', port=8080, reloader=True)

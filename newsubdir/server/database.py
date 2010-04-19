@@ -6,6 +6,8 @@ import random
 import time
 import datetime
 
+import pdb
+
 default_dir = 'vectors'
 db_name = 'donation.sqlite'
 
@@ -79,6 +81,23 @@ class DonaterDatabase(DonationDatabase):
         self._conn.commit()
 
         return secretkey
+
+    def update_attributes(self, key, value, new_key, new_value):
+        pdb.set_trace()
+
+        cur = self._conn.execute('''SELECT vector_id FROM metadata
+                                    WHERE key = ? AND value = ?''',
+                                    (key, value))
+        for row in cur:
+            self._conn.execute('''DELETE FROM metadata
+                                  WHERE vector_id = ?
+                                  AND key = ?''',
+                               (row['vector_id'], new_key))
+            self._conn.execute('''INSERT INTO metadata
+                                  (vector_id, key, value)
+                                  VALUES (?, ?, ?)''',
+                               (row['vector_id'], new_key, new_value))
+        self._conn.commit()
 
     def collect(self, key):
         """Retrieve a vector, iff it has been embedded with data."""
