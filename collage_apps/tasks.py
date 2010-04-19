@@ -8,7 +8,6 @@ import time
 import sys
 
 from collage.messagelayer import Task
-from collage.support.driverutils import ExecutionContext
 
 from vectors import OutguessVector, SimulatedVector
 

@@ -1,5 +1,7 @@
 import os.path
 import random
+import datetime
+import time
 
 from collage.vectorlayer import VectorProvider, EncodingError
 
@@ -66,6 +68,21 @@ class DonatedVectorProvider(VectorProvider):
         self._VectorClass = VectorClass
         self._db = database
         self._killswitch = killswitch
+
+    def get_vector(self, tasks):
+        shuffled_tasks = tasks
+        random.shuffle(shuffled_tasks)
+
+        while not self._killswitch.is_set():
+            for task in shuffled_tasks:
+                vector = self._find_vector(task)
+
+                if vector is not None:
+                    return (vector, task)
+
+            time.sleep(1)
+
+        return None
 
     def _find_vector(self, task):
         if self._killswitch.is_set():

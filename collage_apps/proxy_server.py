@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-from donation.database import AppDatabase
+from collage_donation.server.database import AppDatabase
 import datetime
 import time
 from optparse import OptionParser
 import threading
+import urllib
+import re
 
 from collage.messagelayer import MessageLayer
 
@@ -32,10 +34,13 @@ def get_news(today):
     return 'Nothing interesting happened on %d-%d-%d' % (today.year, today.month, today.day)
 
 def get_tags():
-    tags_file = 'flickr_tags'
+    pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
+    match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
+    block = match.group(1)
+
     tags = []
-    for line in open(tags_file, 'r'):
-        tags.append(line.strip())
+    for m in re.finditer('<a.*?>(.*?)</a>', block, re.S|re.I):
+        tags.append(m.group(1).strip().lower())
     return tags
 
 def main():

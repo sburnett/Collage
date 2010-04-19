@@ -3,6 +3,9 @@
 from bottle import route, view
 import bottle
 import flickrapi
+import urllib
+import re
+import sys
 
 import rpc
 
@@ -15,6 +18,13 @@ flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'http://127.0.0.1:8000'
 APPLICATION_NAME = 'proxy'
+
+def get_latest_tags():
+    pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
+    match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
+    block = match.group(1)
+    output = re.sub('href=".*?"', 'href=""', block)
+    open('views/tags.tpl', 'w').write(output)
 
 @route('/')
 def index():
@@ -86,4 +96,5 @@ def callback():
     bottle.response.set_cookie('userid', userid, path='/')
     bottle.redirect('/')
 
+get_latest_tags()
 bottle.run(host='localhost', port=8080, reloader=True)
