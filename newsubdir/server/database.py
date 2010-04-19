@@ -165,7 +165,7 @@ class UploaderDatabase(DonationDatabase):
 
         self._conn.commit()
 
-def AppDatabase(DonationDatabase):
+class AppDatabase(DonationDatabase):
     def __init__(self, db_dir, application):
         super(AppDatabase, self).__init__(db_dir)
 
