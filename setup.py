@@ -7,5 +7,5 @@ setup(name='Collage',
       description='A censorship-resistent message layer',
       author='Sam Burnett',
       url='http://www.gtnoise.net/collage',
-      packages=['collage-core', 'collage-applications', 'collage-donation'],
+      packages=['collage', 'collage_applications', 'collage_donation'],
       )
