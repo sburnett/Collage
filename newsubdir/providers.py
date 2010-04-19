@@ -3,6 +3,8 @@ import random
 
 from collage.vectorlayer import VectorProvider, EncodingError
 
+from vectors import DonatedOutguessVector
+
 class NullVectorProvider(VectorProvider):
     def _find_vector(self, task):
         return None
@@ -56,3 +58,26 @@ class SimulatedVectorProvider(VectorProvider):
         vector = self._VectorClass(' '*veclen, rate)
         self._vectors.append(vector)
         return vector
+
+class DonatedVectorProvider(VectorProvider):
+    def __init__(self, VectorClass, database, killswitch):
+        super(DonatedVectorProvider, self).__init__(self)
+
+        self._VectorClass = VectorClass
+        self._db = database
+        self._killswitch = killswitch
+
+    def _find_vector(self, task):
+        if self._killswitch.is_set():
+            return None
+
+        (a, b) = task.get_tags()
+        attrs = [('tag', a), ('tag', b)]
+        vectors = self._db.find_vectors(attrs)
+
+        if len(vectors) > 0:
+            key = vectors[0]
+            data = open(self._db.get_filename(key), 'rb').read()
+            return DonatedOutguessVector(data, key)
+        else:
+            return None

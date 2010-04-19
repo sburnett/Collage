@@ -18,9 +18,8 @@ from vectors import OutguessVector
 from providers import NullVectorProvider, DirectoryVectorProvider
 from instruments import create_logger
 
-BLOCK_SIZE = 8
-MAX_UNIQUE_BLOCKS = 2**16
-TASKS_PER_MESSAGE = 3
+import proxy_common as common
+
 TAGS_FILE = 'flickr_tags'
 
 class DownloadWindow:
@@ -77,10 +76,10 @@ class DownloadWindow:
 
         vector_provider = NullVectorProvider()
         message_layer = MessageLayer(vector_provider,
-                                     BLOCK_SIZE,
-                                     MAX_UNIQUE_BLOCKS,
+                                     common.BLOCK_SIZE,
+                                     common.MAX_UNIQUE_BLOCKS,
                                      tasks,
-                                     TASKS_PER_MESSAGE,
+                                     common.TASKS_PER_MESSAGE,
                                      create_logger(self.log_queue))
         data = message_layer.receive(self.address)
 
@@ -131,7 +130,7 @@ class ProxyApp:
         self.root.destroy()
 
         today = datetime.utcnow()
-        address = 'proxy://news/%.4d/%.2d/%.2d' % (today.year, today.month, today.day)
+        address = common.format_address(today)
         DownloadWindow(address, download_complete)
 
     def download_complete(address, data):
@@ -140,7 +139,7 @@ class ProxyApp:
     def update(self, event=None):
         self.root.destroy()
 
-        DownloadWindow('proxy://update', update_complete)
+        DownloadWindow(common.UPDATE_ADDRESS, update_complete)
 
     def update_complete(address, data):
         tags = data.split()

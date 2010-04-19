@@ -69,6 +69,13 @@ class OutguessVector(Vector):
     def __cmp__(self, other):
         return cmp(self._data, other._data)
 
+class DonatedOutguessVector(OutguessVector):
+    def __init__(self, key):
+        self._key = key
+
+    def get_key(self):
+        return self._key
+
 class BlatantVector(Vector):
     def __init__(self, data):
         super(BlatantVector, self).__init__(data)
