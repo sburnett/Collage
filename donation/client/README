@@ -1,0 +1,35 @@
+Collage Flickr Donation Client
+==============================
+
+This program allows you to upload photos to your Flickr photo album.
+Unlike other Flickr uploaders, this program embeds small amounts
+of additional content into your photos before uploading them; in doing
+so, your photos help circumvent Internet censorship. For more details,
+see http://gtnoise.net/collage.
+
+Requirements
+------------
+* Python 2.5 or newer
+* flickrapi package (http://stuvel.eu/projects/flickrapi)
+* A Flickr account
+
+Using the client
+----------------
+Invoke the client program ('flickr_client.py') with Python. It will first ask
+you to authorize the program via your Flickr account. Doing so will permit the
+program to upload photos to Flickr.
+
+Next, you will be allowed to choose a photo to upload, and enter details about
+the photo. To make the photo as useful as possible, please be sure to annotate
+your photos with tags relevant to the content of the image.  There is no limit
+to the number of tags; providing more tags increases the ability of your photos
+to contribute to the anti-censorship effort.
+
+After your click the "upload" button, your photo will be transmitted to
+Collage's central server, where it will be stored for up to 24 hours.  During
+this time, Collage will attempt to find content to embed inside your photo. Once
+it embeds content, it will immediately upload the photo to your Flickr account.
+
+IMPORTANT: Although this program stores content inside your photos, it does not
+alter them in any visually perceptable way. You don't need to worry about Collage
+corrupting your photos.
