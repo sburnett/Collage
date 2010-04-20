@@ -120,7 +120,7 @@ class MessageLayer(object):
         encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
 
         key = hashlib.sha1(identifier).digest()
-        
+
         if num_vectors > 0:
             vector_counter = 0
         else:

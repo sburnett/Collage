@@ -62,16 +62,18 @@ class SimulatedVectorProvider(VectorProvider):
         return vector
 
 class DonatedVectorProvider(VectorProvider):
-    def __init__(self, VectorClass, database, killswitch):
-        super(DonatedVectorProvider, self).__init__(self)
+    def __init__(self, database, killswitch):
+        super(DonatedVectorProvider, self).__init__()
 
-        self._VectorClass = VectorClass
         self._db = database
         self._killswitch = killswitch
 
     def get_vector(self, tasks):
         shuffled_tasks = tasks
         random.shuffle(shuffled_tasks)
+
+        for task in tasks:
+            print task.get_tags()
 
         while not self._killswitch.is_set():
             for task in shuffled_tasks:

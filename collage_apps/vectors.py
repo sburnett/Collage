@@ -70,8 +70,13 @@ class OutguessVector(Vector):
         return cmp(self._data, other._data)
 
 class DonatedOutguessVector(OutguessVector):
-    def __init__(self, key):
+    def __init__(self, data, key):
+        super(DonatedOutguessVector, self).__init__(data)
         self._key = key
+
+    def encode(self, data, key):
+        vec = super(DonatedOutguessVector, self).encode(data, key)
+        return DonatedOutguessVector(self.get_data(), self._key)
 
     def get_key(self):
         return self._key

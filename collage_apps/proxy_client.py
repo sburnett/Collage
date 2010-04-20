@@ -50,6 +50,7 @@ class DownloadWindow:
         self.log_queue = Queue.Queue(100)
 
         self.thread = threading.Thread(target=self.download_file)
+        self.thread.daemon = True
         self.thread.start()
 
         self.root.after(500, self.update_status)
@@ -131,7 +132,7 @@ class ProxyApp:
 
         today = datetime.utcnow()
         address = common.format_address(today)
-        DownloadWindow(address, download_complete)
+        DownloadWindow(address, self.download_complete)
 
     def download_complete(address, data):
         database.add_file(address, data)

@@ -6,6 +6,7 @@ import os
 import os.path
 import time
 import sys
+import hashlib
 
 from collage.messagelayer import Task
 
@@ -184,6 +185,9 @@ class WebTagPairFlickrTask(Task):
 
             next_link.click()   # On to the next results page
 
+    def _hash(self):
+        return hashlib.sha1(' '.join(self._tags)).digest()
+
     def can_embed(self, id, data):
         return True
 
@@ -206,6 +210,9 @@ class DonateTagPairFlickrTask(Task):
 
     def can_embed(self, id, data):
         return True
+
+    def _hash(self):
+        return hashlib.sha1(' '.join(self._tags)).digest()
 
 class DirectTwitterTask(Task):
     def __init__(self, twitter, username, VectorClass):

@@ -16,7 +16,9 @@ from instruments import timestamper
 
 import proxy_common as common
 
-def send_news(address, data, database, tags, send_ratio, killswitch):
+def send_news(address, data, db_dir, tags, send_ratio, killswitch):
+    database = AppDatabase(db_dir, 'proxy')
+
     tag_pairs = [(a, b) for a in tags for b in tags if a < b]
     tasks = map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs)
     vector_provider = DonatedVectorProvider(database, killswitch)
@@ -59,14 +61,18 @@ def main():
         today = datetime.datetime.utcnow()
         address = common.format_address(today)
 
-        data = get_news(today)
-        database = AppDatabase(args[0], 'proxy')
-        tags = get_tags()
+        print 'Publishing document %s' % address
 
+        data = get_news(today)
+        db_dir = args[0]
+        tags = get_tags()
+        
         killswitch = threading.Event()
 
         thread = threading.Thread(target=send_news,
-                                  args=(address, data, database, tags, options.send_ratio, killswitch))
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch))
+        thread.daemon = True
+        thread.start()
 
         while today.day == datetime.datetime.utcnow().day:
             time.sleep(1)
