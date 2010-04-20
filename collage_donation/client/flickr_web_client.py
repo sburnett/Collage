@@ -68,6 +68,7 @@ def process():
 
         attributes = map(lambda tag: ('tag', tag), tags)
         attributes.append(('title', title))
+        attributes.append(('client', 'web'))
         attributes.append(('token', token))
         attributes.append(('userid', userid))
 

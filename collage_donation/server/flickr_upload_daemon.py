@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+# Suggested usage:
+#
+# flickr_upload_daemon.py -a client:web vectors
+#
+# (Ensure that directory vectors exists.) This will upload all
+# photos that we donated by the Web donation client.
+
 from optparse import OptionParser
 import time
 
