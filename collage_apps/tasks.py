@@ -112,10 +112,25 @@ class WebTagPairFlickrTask(Task):
         #####################
         # Search results page
         
-        tags_links = d.find_elements_by_partial_link_text('Tags Only')
-        if len(tags_links) > 0:
-            tags_links[0].click()
+        search_links = d.find_elements_by_partial_link_text('Advanced Search')
+        if len(search_links) > 0:
+            search_links[0].click()
 
+        ######################
+        # Advanced search page
+
+        d.find_element_by_id('tagsonly').click()
+
+        datemode = d.find_element_by_name('date_mode')
+        datemode.click()
+        datemode.send_keys('p')
+
+        submit_button = d.find_element_by_xpath('//input[@class="Butt"]')
+        submit_button.click()
+        
+        #####################
+        # Search results page
+        
         thumb_path = '(//img[@class="pc_img"])[%d]'
 
         pages_remaining = True
