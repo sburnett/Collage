@@ -1,5 +1,6 @@
 import hashlib
 from Crypto.Cipher import ARC4
+from Crypto.Hash import HMAC
 import bisect
 import struct
 import random
@@ -38,7 +39,7 @@ class MessageLayer(object):
     _header_size_mask = 0x7F
 
     def __init__(self, vector_provider, block_size, max_unique_blocks,
-                 tasks, task_mapping_size, instrument=None, error_margin=2):
+                 tasks, task_mapping_size, instrument=None, error_margin=2, mac=False):
         """Initialize a message, using a particular Vector
             for storing message chunks."""
 
@@ -55,6 +56,7 @@ class MessageLayer(object):
             self._instrument = instrument
 
         self._error_margin = error_margin
+        self._mac = mac
 
     def reload_task_database(self, tasks):
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
@@ -149,8 +151,10 @@ class MessageLayer(object):
                     blocks.append(encoder.next_block())
 
                 payload = self._prepare_payload(blocks, data_len)
-                encrypter = ARC4.new(key)
-                ciphertext = encrypter.encrypt(payload)
+                ciphertext = ARC4.new(key).encrypt(payload)
+                if self._mac:
+                    mac = HMAC.new(identifier, msg=ciphertext).digest()
+                    ciphertext = '%s%s' % (mac, ciphertext)
 
                 print 'Attempting to encode %d bytes' % (len(ciphertext),)
 
@@ -243,6 +247,18 @@ class MessageLayer(object):
                     self._instrument('begin decode')
                     ciphertext = vector.decode(key)
                     self._instrument('end decode')
+
+                    if self._mac:
+                        try:
+                            mac = ciphertext[:HMAC.digest_size]
+                            ciphertext = ciphertext[HMAC.digest_size:]
+
+                            digester = HMAC.new(identifier, msg=ciphertext)
+                            if digester.digest() != mac:
+                                print 'MAC is not authentic'
+                                continue
+                        except:
+                            continue
 
                     try:
                         decrypter = ARC4.new(key)
