@@ -249,11 +249,13 @@ class MessageLayer(object):
                     self._instrument('end decode')
 
                     if self._mac:
+                        pdb.set_trace()
                         try:
-                            mac = ciphertext[:HMAC.digest_size]
-                            ciphertext = ciphertext[HMAC.digest_size:]
+                            digester = HMAC.new(identifier)
+                            mac = ciphertext[:digester.digest_size]
+                            ciphertext = ciphertext[digester.digest_size:]
 
-                            digester = HMAC.new(identifier, msg=ciphertext)
+                            digester.update(ciphertext)
                             if digester.digest() != mac:
                                 print 'MAC is not authentic'
                                 continue

@@ -84,7 +84,8 @@ def main():
                                      max_unique_blocks,
                                      tasks,
                                      tasks_per_message,
-                                     timestamper)
+                                     timestamper,
+                                     mac=True)
         if options.num_vectors is not None:
             message_layer.send(args[1], data, num_vectors=options.num_vectors)
         elif options.send_ratio is not None:
@@ -99,7 +100,8 @@ def main():
                                      max_unique_blocks,
                                      tasks,
                                      tasks_per_message,
-                                     timestamper)
+                                     timestamper,
+                                     mac=True)
         data = message_layer.receive(args[1])
         sys.stdout.write(data)
     elif args[0] == 'delete':
