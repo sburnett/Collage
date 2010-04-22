@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import Tkinter
+import tkMessageBox
 import webbrowser
 import threading
 import Queue
@@ -139,6 +140,12 @@ class ProxyApp:
 
         today = datetime.utcnow()
         address = common.format_address(today)
+
+        for seen in database.get_addresses():
+            if address == seen:
+                tkMessageBox.showinfo('Download complete',
+                                      'You have already downloaded the latest news')
+
         DownloadWindow(address, self.download_complete)
 
     def download_complete(address, data):
