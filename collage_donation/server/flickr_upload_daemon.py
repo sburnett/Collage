@@ -14,8 +14,6 @@ import flickrapi
 
 from database import UploaderDatabase
 
-import pdb
-
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
 
@@ -65,8 +63,6 @@ def main():
             for (k, v) in attributes:
                 if k == 'tag':
                     tags.append(v)
-
-            pdb.set_trace()
 
             flickr.upload(filename=str(db.get_filename(key)), title=str(attr_dict.get('title', '')), tags=str(' '.join(tags)))
             db.delete(key)

@@ -83,8 +83,6 @@ class DonaterDatabase(DonationDatabase):
         return secretkey
 
     def update_attributes(self, key, value, new_key, new_value):
-        pdb.set_trace()
-
         cur = self._conn.execute('''SELECT vector_id FROM metadata
                                     WHERE key = ? AND value = ?''',
                                     (key, value))
@@ -249,6 +247,10 @@ class AppDatabase(DonationDatabase):
                               WHERE key = ?''',
                            (key,))
         self._conn.commit()
+
+class CleanupDatabase(DonationDatabase):
+    def __init__(self, db_dir):
+        super(CleanupDatabase, self).__init__(db_dir)
 
     def cleanup(self):
         """Erase vectors that are older than their expiration data."""

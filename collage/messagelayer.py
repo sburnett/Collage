@@ -10,8 +10,6 @@ import bz2
 import coder
 import vectorlayer
 
-import pdb
-
 class MessageLayerError(Exception):
     pass
 
@@ -249,7 +247,6 @@ class MessageLayer(object):
                     self._instrument('end decode')
 
                     if self._mac:
-                        pdb.set_trace()
                         try:
                             digester = HMAC.new(identifier)
                             mac = ciphertext[:digester.digest_size]

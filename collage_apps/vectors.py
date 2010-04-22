@@ -4,6 +4,8 @@ import base64
 import time
 import struct
 
+import hashlib
+
 from collage.vectorlayer import Vector, EncodingError
 
 class OutguessVector(Vector):
@@ -13,6 +15,9 @@ class OutguessVector(Vector):
         self._decoded_data = None
 
     def encode(self, data, key):
+        print 'Data: %s' % hashlib.md5(data).hexdigest()
+        print 'Key: %s' % hashlib.md5(key).hexdigest()
+
         data_file = tempfile.NamedTemporaryFile()
         data_file.write(data)
         data_file.flush()
@@ -44,6 +49,7 @@ class OutguessVector(Vector):
         return OutguessVector(encoded)
 
     def decode(self, key):
+        print 'Key: %s' % hashlib.md5(key).hexdigest()
         if self._decoded_data is None:
             embedded_file = tempfile.NamedTemporaryFile(suffix='.jpg')
             embedded_file.write(self._data)
@@ -60,6 +66,7 @@ class OutguessVector(Vector):
                 return None
 
             self._decoded_data = data_file.read()
+            print 'Data: %s' % hashlib.md5(self._decoded_data).hexdigest()
 
         return self._decoded_data
 

@@ -9,6 +9,8 @@ import sys
 
 import rpc
 
+import pdb
+
 bottle.debug(True)
 
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
@@ -28,7 +30,8 @@ def get_latest_tags():
 
 @route('/')
 def index():
-    if 'token' in bottle.request.COOKIES:
+    if 'token' in bottle.request.COOKIES and \
+            'userid' in bottle.request.COOKIES:
         bottle.redirect('/upload')
     else:
         bottle.redirect('/login')
@@ -51,7 +54,8 @@ def upload():
 
 @route('/upload', method='POST')
 def process():
-    if 'token' not in bottle.request.COOKIES:
+    if 'token' not in bottle.request.COOKIES \
+            or 'userid' not in bottle.request.COOKIES:
         bottle.redirect('/login')
     elif 'submit' not in bottle.request.POST:
         bottle.redirect('/upload')

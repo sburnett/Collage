@@ -1,6 +1,7 @@
 chdir collage_donation/server
 screen ./server.py vectors
 screen ./flickr_upload_daemon.py vectors -a client:web
+screen ./garbage_collection.py vectors
 chdir ../client
 screen ./flickr_web_client.py
 chdir ../../collage_apps

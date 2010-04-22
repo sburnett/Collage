@@ -162,7 +162,7 @@ class WebTagPairFlickrTask(Task):
                 ##################
                 # Photo sizes page
 
-                clicked_original = False
+                click_another_size = False
 
                 # If we're not on the "original" size, then
                 # try to click the "original" link, if it exists
@@ -173,21 +173,28 @@ class WebTagPairFlickrTask(Task):
                     for link in links:
                         if link.get_text() == 'Original':
                             link.click()
-                            clicked_original = True
+                            click_another_size = True
+                    if not click_another_size:
+                        links = d.find_elements_by_xpath('//td/a')
+                        for link in links:
+                            if link.get_text() == 'Large':
+                                link.click()
+                                click_another_size = True
 
                 # Now check to see if we are in fact on the
                 # "original" size. If we are, then download
                 # the photo. Otherwise, go back to the previous page
                 strong_text = d.find_element_by_xpath('//td/strong')
                 current_text = strong_text.get_text()
-                if current_text == 'Original':
+                if current_text == 'Original' or \
+                        current_text == 'Large':
                     img = d.find_element_by_xpath('//p/img')
                     src = img.get_attribute('src')
 
                     data = d.get_url_from_cache(src)
                     yield OutguessVector(data)
 
-                if clicked_original:
+                if click_another_size:
                     d.back()   # Back to first size photo page
                 d.back()       # Back to photo summary page
                 d.back()       # Back to search results page

@@ -64,6 +64,10 @@ class DownloadWindow:
             except Queue.Empty:
                 break
 
+        if not self.thread.is_alive():
+            self.root.destroy()
+            ProxyApp()
+
         self.root.after_idle(self.update_status)
 
     def download_file(self):
@@ -81,8 +85,11 @@ class DownloadWindow:
                                      common.MAX_UNIQUE_BLOCKS,
                                      tasks,
                                      common.TASKS_PER_MESSAGE,
-                                     create_logger(self.log_queue))
+                                     create_logger(self.log_queue),
+                                     mac=True)
         data = message_layer.receive(self.address)
+
+        driver.close()
 
         self.callback(data)
 

@@ -28,7 +28,8 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch):
                                  common.MAX_UNIQUE_BLOCKS,
                                  tasks,
                                  common.TASKS_PER_MESSAGE,
-                                 timestamper)
+                                 timestamper,
+                                 mac=True)
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
