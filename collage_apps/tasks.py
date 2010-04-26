@@ -192,6 +192,7 @@ class WebTagPairFlickrTask(Task):
                     src = img.get_attribute('src')
 
                     data = d.get_url_from_cache(src)
+                    print hashlib.md5(data).hexdigest()
                     yield OutguessVector(data)
 
                 if click_another_size:

@@ -31,6 +31,8 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch):
                                  timestamper,
                                  mac=True)
 
+    print 'Sending message: %s' % data
+
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def get_news(today):

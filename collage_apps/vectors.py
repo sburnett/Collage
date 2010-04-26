@@ -5,6 +5,7 @@ import time
 import struct
 
 import hashlib
+import pdb
 
 from collage.vectorlayer import Vector, EncodingError
 
@@ -14,12 +15,9 @@ class OutguessVector(Vector):
         self._timeout = timeout
         self._decoded_data = None
 
-    def encode(self, data, key):
-        print 'Data: %s' % hashlib.md5(data).hexdigest()
-        print 'Key: %s' % hashlib.md5(key).hexdigest()
-
+    def encode(self, message, key):
         data_file = tempfile.NamedTemporaryFile()
-        data_file.write(data)
+        data_file.write(message)
         data_file.flush()
 
         cover_file = tempfile.NamedTemporaryFile(suffix='.jpg')
@@ -46,19 +44,30 @@ class OutguessVector(Vector):
             raise EncodingError
 
         encoded = dest_file.read()
-        return OutguessVector(encoded)
+        encoded_vector = OutguessVector(encoded)
+
+        if encoded_vector.decode(key) != message:
+            raise EncodingError
+
+        print 'RETURNING: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
+        return encoded_vector
 
     def decode(self, key):
-        print 'Key: %s' % hashlib.md5(key).hexdigest()
+        print 'Key: %s' % base64.b64encode(key)
+        print 'Image hash: %s' % hashlib.md5(self._data).hexdigest()
         if self._decoded_data is None:
             embedded_file = tempfile.NamedTemporaryFile(suffix='.jpg')
             embedded_file.write(self._data)
             embedded_file.flush()
             data_file = tempfile.NamedTemporaryFile()
 
+            print '!DC image: ' + hashlib.md5(open(embedded_file.name, 'r').read()).hexdigest()
+            print '!DC length: ' + str(len(open(embedded_file.name, 'r').read()))
+
             command = ['outguess', '-k', base64.b64encode(key),
                        '-r', embedded_file.name,
                        data_file.name]
+            print '!DC command: ' + str(command)
             retcode = subprocess.call(command, stdout=open('/dev/null', 'w'),
                                                stderr=subprocess.STDOUT)
 
@@ -66,7 +75,7 @@ class OutguessVector(Vector):
                 return None
 
             self._decoded_data = data_file.read()
-            print 'Data: %s' % hashlib.md5(self._decoded_data).hexdigest()
+            print '!DC data: %s' % hashlib.md5(self._decoded_data).hexdigest()
 
         return self._decoded_data
 
@@ -83,7 +92,7 @@ class DonatedOutguessVector(OutguessVector):
 
     def encode(self, data, key):
         vec = super(DonatedOutguessVector, self).encode(data, key)
-        return DonatedOutguessVector(self.get_data(), self._key)
+        return DonatedOutguessVector(vec.get_data(), self._key)
 
     def get_key(self):
         return self._key

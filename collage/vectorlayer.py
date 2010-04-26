@@ -13,7 +13,7 @@ class Vector(object):
     create new copies of the vector."""
 
     def __init__(self, data, properties={}):
-        self._data = data
+        self._data = str(data)
         self._properties = dict(properties)
 
     def get_data(self):

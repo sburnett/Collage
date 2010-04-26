@@ -158,13 +158,14 @@ class MessageLayer(object):
 
                 self._instrument('begin encode')
                 try:
-                    coded_vector = cover_vector.encode(ciphertext, key)
+                    encoded_vector = cover_vector.encode(ciphertext, key)
+                    print 'GOTVECTOR: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
                 except vectorlayer.EncodingError:
                     raise vectorlayer.EncodingError
                 finally:
                     self._instrument('end encode')
 
-                return (len(ciphertext), coded_vector)
+                return (len(ciphertext), encoded_vector)
 
             coded_vector = None
             lower_bound = upper_bound = 2
@@ -189,6 +190,8 @@ class MessageLayer(object):
             if coded_vector:
                 self._instrument('upload %d bytes in %d byte cover' % (current_len, len(coded_vector.get_data())))
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
+                print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
+                print 'To upload length: %d' % len(coded_vector._data)
                 task.send(key, coded_vector)
                 if num_vectors == 0:
                     bytes_sent += current_len

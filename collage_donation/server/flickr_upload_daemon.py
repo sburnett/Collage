@@ -9,6 +9,7 @@
 
 from optparse import OptionParser
 import time
+import os
 
 import flickrapi
 
@@ -63,6 +64,8 @@ def main():
             for (k, v) in attributes:
                 if k == 'tag':
                     tags.append(v)
+
+            os.system('md5sum %s' % db.get_filename(key))
 
             flickr.upload(filename=str(db.get_filename(key)), title=str(attr_dict.get('title', '')), tags=str(' '.join(tags)))
             db.delete(key)

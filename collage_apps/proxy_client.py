@@ -24,7 +24,9 @@ import proxy_common as common
 TAGS_FILE = 'flickr_tags'
 
 class DownloadWindow:
-    def __init__(self, address, callback):
+    def __init__(self, db_filename, address, callback):
+        self.db_filename = db_filename
+
         self.address = address
         self.callback = callback
 
@@ -67,7 +69,7 @@ class DownloadWindow:
 
         if not self.thread.is_alive():
             self.root.destroy()
-            ProxyApp()
+            ProxyApp(self.db_filename)
 
         self.root.after_idle(self.update_status)
 
@@ -92,14 +94,17 @@ class DownloadWindow:
 
         driver.close()
 
-        self.callback(data)
+        self.callback(self.address, data)
 
     def cancel(self):
         self.root.destroy()
-        ProxyApp()
+        ProxyApp(self.db_filename)
 
 class ProxyApp:
-    def __init__(self):
+    def __init__(self, db_filename):
+        self.db_filename = db_filename
+        self.database = Database(db_filename)
+
         self.root = Tkinter.Tk()
         self.root.title(string='Collage proxy client')
         try:
@@ -107,6 +112,7 @@ class ProxyApp:
         except:
             pass
 
+        Tkinter.Label(self.root, text='Double click a document to view it.').pack()
         self.document_list = Tkinter.Listbox(self.root, selectmode=Tkinter.SINGLE)
         self.document_list.bind('<Double-Button-1>', self.view_article)
         self.document_list.pack(fill=Tkinter.BOTH, expand=1)
@@ -116,7 +122,7 @@ class ProxyApp:
         Tkinter.Button(button_frame, text='Update task database', command=self.update).pack(side=Tkinter.LEFT)
         button_frame.pack()
 
-        for (address, fetched) in database.get_addresses():
+        for (address, fetched) in self.database.get_addresses().items():
             self.document_list.insert(Tkinter.END, address)
 
         self.root.mainloop()
@@ -127,9 +133,9 @@ class ProxyApp:
             return
 
         address = self.document_list.get(sel[0])
-        data = database.get_file(address)
+        data = self.database.get_file(address)
 
-        fh = tmpfile.NamedTemporaryFile(suffix='.html', prefix='collage_proxy_', delete=False)
+        fh = tempfile.NamedTemporaryFile(suffix='.html', prefix='collage_proxy_', delete=False)
         fh.write(data)
         fh.close()
 
@@ -141,24 +147,26 @@ class ProxyApp:
         today = datetime.utcnow()
         address = common.format_address(today)
 
-        for seen in database.get_addresses():
+        for seen in self.database.get_addresses():
             if address == seen:
                 tkMessageBox.showinfo('Download complete',
                                       'You have already downloaded the latest news')
 
-        DownloadWindow(address, self.download_complete)
+        DownloadWindow(self.db_filename, address, self.download_complete)
 
-    def download_complete(address, data):
-        database.add_file(address, data)
+    def download_complete(self, address, data):
+        db = Database(self.db_filename)
+        db.add_file(address, data)
 
     def update(self, event=None):
         self.root.destroy()
 
-        DownloadWindow(common.UPDATE_ADDRESS, update_complete)
+        DownloadWindow(self.db_filename, common.UPDATE_ADDRESS, self.update_complete)
 
-    def update_complete(address, data):
+    def update_complete(self, address, data):
         tags = data.split()
-        database.set_tags(tags)
+        db = Database(self.db_filename)
+        db.set_tags(tags)
 
 class Database:
     def __init__(self, filename):
@@ -169,11 +177,13 @@ class Database:
                              (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
         self.conn.execute('''CREATE TABLE IF NOT EXISTS tags
                              (tag TEXT)''')
+        self.conn.commit()
 
     def add_file(self, address, contents):
         self.conn.execute('''DELETE FROM downloads WHERE address = ?''', (contents,))
         self.conn.execute('''INSERT INTO downloads (address, contents)
                              VALUES (?, ?)''', (address, contents))
+        self.conn.commit()
 
     def get_file(self, address):
         row = self.conn.execute('''SELECT contents FROM downloads WHERE address = ?''',
@@ -204,6 +214,8 @@ class Database:
         for tag in tags:
             self.conn.execute('INSERT INTO tags (tag) VALUES (?)', (tag,))
 
+        self.conn.commit()
+
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
@@ -211,9 +223,7 @@ def main():
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='SQLite database')
     (options, args) = parser.parse_args()
 
-    global database
-    database = Database(options.database)
-    ProxyApp()
+    ProxyApp(options.database)
 
 if __name__ == '__main__':
     main()
