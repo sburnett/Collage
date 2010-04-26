@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
-import Tkinter
-import tkMessageBox
-import webbrowser
 import threading
 import Queue
 from datetime import datetime
 import sqlite3
 import tempfile
 from optparse import OptionParser
+import time
 
 from selenium.firefox.webdriver import WebDriver
+import wx
+import wx.html
 
 from collage.messagelayer import MessageLayer
 
@@ -23,57 +23,112 @@ import proxy_common as common
 
 TAGS_FILE = 'flickr_tags'
 
-class DownloadWindow:
-    def __init__(self, db_filename, address, callback):
-        self.db_filename = db_filename
+class OpenFrame(wx.Dialog):
+    def __init__(self, parent, db_filename):
+        wx.Dialog.__init__(self, parent, title='Open censored document', style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+
+        self.database = Database(db_filename)
+
+        addresses = []
+        for (address, fetched) in self.database.get_addresses().items():
+            addresses.append(address)
+
+        self.sizer = wx.FlexGridSizer(wx.VERTICAL)
+        self.sizer.AddGrowableRow(1)
+        self.sizer.AddGrowableCol(0)
+
+        label = wx.StaticText(self, label='Select a censored document from the list below.')
+        self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
+
+        self.control = wx.ListBox(self, choices=addresses, style=wx.LB_SINGLE)
+        self.sizer.Add(self.control, flag=wx.EXPAND)
+        self.Bind(wx.EVT_LISTBOX_DCLICK, self.OnOpen, self.control)
+        
+        button_panel = wx.Panel(self)
+        self.sizer.Add(button_panel, flag=wx.EXPAND)
+        panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        panel_sizer.AddStretchSpacer()
+
+        cancel_button = wx.Button(button_panel, id=wx.ID_CANCEL)
+        panel_sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+
+        open_button = wx.Button(button_panel, id=wx.ID_OPEN)
+        panel_sizer.Add(open_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnOpen, open_button)
+
+        button_panel.SetSizer(panel_sizer)
+        button_panel.SetAutoLayout(1)
+
+        self.SetSizer(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+
+    def OnOpen(self, event):
+        self.address = self.control.GetStringSelection()
+        if len(self.address) > 0:
+            self.EndModal(wx.OK)
+
+    def GetAddress(self):
+        return self.address
+
+    def OnCancel(self, event):
+        self.EndModal(wx.CANCEL)
+
+class FetchFrame(wx.Dialog):
+    def __init__(self, parent, address):
+        wx.Dialog.__init__(self, parent, title='Fetching %s' % address, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
 
         self.address = address
-        self.callback = callback
+        self.data = None
 
-        self.root = Tkinter.Tk()
-        self.root.title(string='Collage downloader')
-        try:
-            self.root.call('console', 'hide')
-        except:
-            pass
+        self.sizer = wx.FlexGridSizer(wx.VERTICAL)
+        self.sizer.AddGrowableRow(1)
+        self.sizer.AddGrowableCol(0)
 
-        frame = Tkinter.Frame(self.root)
-        Tkinter.Label(frame, text='Downloading ').pack(side=Tkinter.LEFT)
-        Tkinter.Label(frame, text=address, font=('Courier', 12)).pack(side=Tkinter.LEFT)
-        Tkinter.Label(frame, text=' using Collage. Please be patient.').pack(side=Tkinter.LEFT)
-        frame.pack()
-        Tkinter.Label(self.root, text='This program will open new Firefox windows. Do not interfere with these windows.').pack()
+        status_str = 'Currently fetching %s\n' % address + \
+                     'This program will open new Firefox windows. ' + \
+                     'Do not interfere with these windows.'
+        label = wx.StaticText(self, label=status_str, style=wx.ALIGN_CENTER)
+        self.sizer.Add(label, flag=wx.ALIGN_CENTER)
 
-        self.log_list = Tkinter.Listbox(self.root, selectmode=Tkinter.SINGLE)
-        self.log_list.pack(fill=Tkinter.BOTH, expand=1)
+        self.control = wx.ListBox(self, style=wx.LB_SINGLE)
+        self.sizer.Add(self.control, flag=wx.ALIGN_CENTER|wx.EXPAND)
 
-        Tkinter.Button(self.root, text='Cancel', command=self.cancel).pack()
-        self.root.protocol('WM_DELETE_WINDOW', self.cancel)
-        
+        cancel_button = wx.Button(self, id=wx.ID_CANCEL)
+        self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+
+        self.Bind(wx.EVT_IDLE, self.OnIdle)
+
+        self.SetSizer(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+
         self.log_queue = Queue.Queue(100)
 
-        self.thread = threading.Thread(target=self.download_file)
+        self.thread = threading.Thread(target=self.DownloadFile)
         self.thread.daemon = True
         self.thread.start()
 
-        self.root.after(500, self.update_status)
-        self.root.mainloop()
+    def OnCancel(self, event):
+        self.EndModal(wx.CANCEL)
 
-    def update_status(self):
+    def OnIdle(self, event):
         while True:
             try:
                 item = self.log_queue.get(False)
-                self.log_list.insert(0, item)
+                self.control.AppendAndEnsureVisible(item)
             except Queue.Empty:
                 break
 
         if not self.thread.is_alive():
-            self.root.destroy()
-            ProxyApp(self.db_filename)
+            self.EndModal(wx.OK)
 
-        self.root.after_idle(self.update_status)
+    def GetData(self):
+        return self.data
 
-    def download_file(self):
+    def DownloadFile(self):
         driver = WebDriver()
 
         tags = []
@@ -90,83 +145,75 @@ class DownloadWindow:
                                      common.TASKS_PER_MESSAGE,
                                      create_logger(self.log_queue),
                                      mac=True)
-        data = message_layer.receive(self.address)
+        self.data = message_layer.receive(self.address)
 
         driver.close()
 
-        self.callback(self.address, data)
+class ProxyFrame(wx.Frame):
+    my_title = 'Collage proxy client'
+    def __init__(self, parent, db_filename):
+        wx.Frame.__init__(self, parent, title=self.my_title)
 
-    def cancel(self):
-        self.root.destroy()
-        ProxyApp(self.db_filename)
-
-class ProxyApp:
-    def __init__(self, db_filename):
         self.db_filename = db_filename
         self.database = Database(db_filename)
 
-        self.root = Tkinter.Tk()
-        self.root.title(string='Collage proxy client')
-        try:
-            self.root.call('console', 'hide')
-        except:
-            pass
+        filemenu = wx.Menu()
+        item = filemenu.Append(wx.ID_OPEN, '&Open...', 'View censored documents')
+        self.Bind(wx.EVT_MENU, self.OnOpen, item)
+        item = filemenu.Append(wx.ID_ANY, '&Fetch news', 'Download the latest news')
+        self.Bind(wx.EVT_MENU, self.OnFetch, item)
+        item = filemenu.Append(wx.ID_ANY, '&Update task database', 'Fetch the latest task database')
+        self.Bind(wx.EVT_MENU, self.OnUpdate, item)
+        filemenu.AppendSeparator()
+        item = filemenu.Append(wx.ID_EXIT, 'E&xit', 'Terminate the program')
+        self.Bind(wx.EVT_MENU, self.OnExit, item)
 
-        Tkinter.Label(self.root, text='Double click a document to view it.').pack()
-        self.document_list = Tkinter.Listbox(self.root, selectmode=Tkinter.SINGLE)
-        self.document_list.bind('<Double-Button-1>', self.view_article)
-        self.document_list.pack(fill=Tkinter.BOTH, expand=1)
+        menubar = wx.MenuBar()
+        menubar.Append(filemenu, '&File')
+        self.SetMenuBar(menubar)
 
-        button_frame = Tkinter.Frame(self.root)
-        Tkinter.Button(button_frame, text='Download the latest news', command=self.download).pack(side=Tkinter.LEFT)
-        Tkinter.Button(button_frame, text='Update task database', command=self.update).pack(side=Tkinter.LEFT)
-        button_frame.pack()
+        self.CreateStatusBar()
 
-        for (address, fetched) in self.database.get_addresses().items():
-            self.document_list.insert(Tkinter.END, address)
+        self.control = wx.html.HtmlWindow(self)
 
-        self.root.mainloop()
+        self.Show(True)
 
-    def view_article(self, event=None):
-        sel = self.document_list.curselection()
-        if len(sel) == 0:
-            return
+    def OnOpen(self, event):
+        dlg = OpenFrame(self, self.db_filename)
+        if dlg.ShowModal() == wx.OK:
+            address = dlg.GetAddress()
+            self.SetTitle('%s - %s' % (address, self.my_title))
+            contents = self.database.get_file(address)
+            self.control.SetPage(contents)
+        dlg.Destroy()
 
-        address = self.document_list.get(sel[0])
-        data = self.database.get_file(address)
-
-        fh = tempfile.NamedTemporaryFile(suffix='.html', prefix='collage_proxy_', delete=False)
-        fh.write(data)
-        fh.close()
-
-        webbrowser.open_new(fh.name)
-
-    def download(self, event=None):
-        self.root.destroy()
-
+    def OnFetch(self, event):
         today = datetime.utcnow()
         address = common.format_address(today)
 
         for seen in self.database.get_addresses():
             if address == seen:
-                tkMessageBox.showinfo('Download complete',
-                                      'You have already downloaded the latest news')
+                wx.MessageDialog(self,
+                                 'You have already downloaded the latest news',
+                                 'Download complete')
+                return
 
-        DownloadWindow(self.db_filename, address, self.download_complete)
+        dlg = FetchFrame(self, address)
+        rc = dlg.ShowModal()
+        data = dlg.GetData()
+        if rc == wx.OK and data is not None:
+            self.database.add_file(address, data)
 
-    def download_complete(self, address, data):
-        db = Database(self.db_filename)
-        db.add_file(address, data)
+    def OnUpdate(self, event):
+        dlg = FetchFrame(self, common.UPDATE_ADDRESS)
+        rc = dlg.ShowModal()
+        data = dlg.GetData()
+        if rc == wx.OK and data is not None:
+            tags = data.split()
+            self.database.set_tags(tags)
 
-    def update(self, event=None):
-        self.root.destroy()
-
-        DownloadWindow(self.db_filename, common.UPDATE_ADDRESS, self.update_complete)
-
-    def update_complete(self, address, data):
-        tags = data.split()
-        db = Database(self.db_filename)
-        db.set_tags(tags)
+    def OnExit(self, event):
+        self.Close(True)
 
 class Database:
     def __init__(self, filename):
@@ -223,7 +270,9 @@ def main():
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='SQLite database')
     (options, args) = parser.parse_args()
 
-    ProxyApp(options.database)
+    app = wx.App(False)
+    frame = ProxyFrame(None, options.database)
+    app.MainLoop()
 
 if __name__ == '__main__':
     main()
