@@ -2,47 +2,141 @@
 
 import threading
 import Queue
-from datetime import datetime
+import datetime
 import sqlite3
-import tempfile
 from optparse import OptionParser
-import time
+import webbrowser
+import pkgutil
+import os.path
+import urllib
+import re
 
 from selenium.firefox.webdriver import WebDriver
 import wx
 import wx.html
+import wx.calendar
 
 from collage.messagelayer import MessageLayer
 
-from tasks import WebTagPairFlickrTask
-from vectors import OutguessVector
-from providers import NullVectorProvider, DirectoryVectorProvider
+from providers import NullVectorProvider
 from instruments import create_logger
 
 import proxy_common as common
 
-TAGS_FILE = 'flickr_tags'
+class DownloadThread(threading.Thread):
+    def __init__(self, log_queue, db_filename, address):
+        super(DownloadThread, self).__init__()
+        self.log_queue = log_queue
+        self.db_filename = db_filename
+        self.address = address
+        self.data = None
+    
+    def run(self):
+        driver = WebDriver()
 
-class OpenFrame(wx.Dialog):
-    def __init__(self, parent, db_filename):
-        wx.Dialog.__init__(self, parent, title='Open censored document', style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+        database = Database(self.db_filename)
+        modules = database.get_loaded_task_modules()
+        all_tasks = database.get_tasks()
+        snippets = filter(lambda s: s.get_module() in modules, all_tasks)
+        tasks = map(lambda s: s.execute(driver), snippets)
 
-        self.database = Database(db_filename)
+        vector_provider = NullVectorProvider()
+        message_layer = MessageLayer(vector_provider,
+                                     common.BLOCK_SIZE,
+                                     common.MAX_UNIQUE_BLOCKS,
+                                     tasks,
+                                     common.TASKS_PER_MESSAGE,
+                                     create_logger(self.log_queue),
+                                     mac=True)
+        self.data = message_layer.receive(self.address)
 
-        addresses = []
-        for (address, fetched) in self.database.get_addresses().items():
-            addresses.append(address)
+        driver.close()
+
+    def get_data(self):
+        return self.data
+
+class FetchFrame(wx.Dialog):
+    def __init__(self, parent, db_filename, address):
+        wx.Dialog.__init__(self, parent,
+                           title='Fetching %s' % address,
+                           style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+
+        self.db_filename = db_filename
+        self.address = address
+        self.data = None
 
         self.sizer = wx.FlexGridSizer(wx.VERTICAL)
         self.sizer.AddGrowableRow(1)
         self.sizer.AddGrowableCol(0)
 
-        label = wx.StaticText(self, label='Select a censored document from the list below.')
+        status_str = 'Currently fetching %s\n' % address + \
+                     'This program will open new Firefox windows. ' + \
+                     'Do not interfere with these windows.'
+        label = wx.StaticText(self, label=status_str, style=wx.ALIGN_CENTER)
+        self.sizer.Add(label, flag=wx.ALIGN_CENTER)
+
+        self.control = wx.ListBox(self, style=wx.LB_SINGLE)
+        self.sizer.Add(self.control, flag=wx.ALIGN_CENTER|wx.EXPAND)
+
+        cancel_button = wx.Button(self, id=wx.ID_CANCEL)
+        self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+
+        self.SetSizer(self.sizer)
+        self.SetAutoLayout(1)
+        self.sizer.Fit(self)
+
+        self.log_queue = Queue.Queue(100)
+
+        self.thread = DownloadThread(self.log_queue, db_filename, address)
+        self.thread.daemon = True
+        self.thread.start()
+
+        self.Bind(wx.EVT_IDLE, self.OnIdle)
+
+    def OnCancel(self, event):
+        self.EndModal(wx.CANCEL)
+
+    def OnIdle(self, event):
+        while True:
+            try:
+                item = self.log_queue.get(False)
+                self.control.AppendAndEnsureVisible(item)
+            except Queue.Empty:
+                break
+
+        if not self.thread.is_alive():
+            self.data = self.thread.get_data()
+            self.EndModal(wx.OK)
+
+    def GetData(self):
+        return self.data
+
+class OpenFrame(wx.Dialog):
+    def __init__(self, parent, db_filename):
+        wx.Dialog.__init__(self, parent,
+                           title='Open censored document',
+                           style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+
+        self.database = Database(db_filename)
+
+        self.dates = []
+        for (address, fetched) in self.database.get_addresses().items():
+            self.dates.append(common.parse_address(address))
+
+        self.sizer = wx.FlexGridSizer(wx.VERTICAL)
+        self.sizer.AddGrowableRow(1)
+        self.sizer.AddGrowableCol(0)
+
+        label = wx.StaticText(self, label='Select a circled date from the calendar.')
         self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
 
-        self.control = wx.ListBox(self, choices=addresses, style=wx.LB_SINGLE)
+        self.control = wx.calendar.CalendarCtrl(self)
         self.sizer.Add(self.control, flag=wx.EXPAND)
-        self.Bind(wx.EVT_LISTBOX_DCLICK, self.OnOpen, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR, self.OnOpen, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.OnChange, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.OnChange, self.control)
+        self.OnChange(None)
         
         button_panel = wx.Panel(self)
         self.sizer.Add(button_panel, flag=wx.EXPAND)
@@ -65,9 +159,22 @@ class OpenFrame(wx.Dialog):
         self.sizer.Fit(self)
 
     def OnOpen(self, event):
-        self.address = self.control.GetStringSelection()
-        if len(self.address) > 0:
-            self.EndModal(wx.OK)
+        date = self.control.PyGetDate()
+        if date is None or date not in self.dates:
+            return
+        self.address = common.format_address(date)
+        self.EndModal(wx.OK)
+
+    def OnChange(self, event):
+        for i in range(1, 32):
+            self.control.ResetAttr(i)
+        current = self.control.PyGetDate()
+        for date in self.dates:
+            if date.year == current.year and date.month == current.month:
+                avail_style = wx.calendar.CalendarDateAttr(colBorder='#000000', border=wx.calendar.CAL_BORDER_ROUND)
+                self.control.SetAttr(date.day, avail_style)
+
+        self.control.Refresh()
 
     def GetAddress(self):
         return self.address
@@ -75,79 +182,54 @@ class OpenFrame(wx.Dialog):
     def OnCancel(self, event):
         self.EndModal(wx.CANCEL)
 
-class FetchFrame(wx.Dialog):
-    def __init__(self, parent, address):
-        wx.Dialog.__init__(self, parent, title='Fetching %s' % address, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+class TasksFrame(wx.Dialog):
+    my_title = 'Collage task modules'
+    def __init__(self, parent, db_filename):
+        wx.Dialog.__init__(self, parent, title=self.my_title)
 
-        self.address = address
-        self.data = None
+        self.db_filename = db_filename
+        self.database = Database(db_filename)
 
         self.sizer = wx.FlexGridSizer(wx.VERTICAL)
         self.sizer.AddGrowableRow(1)
         self.sizer.AddGrowableCol(0)
 
-        status_str = 'Currently fetching %s\n' % address + \
-                     'This program will open new Firefox windows. ' + \
-                     'Do not interfere with these windows.'
-        label = wx.StaticText(self, label=status_str, style=wx.ALIGN_CENTER)
-        self.sizer.Add(label, flag=wx.ALIGN_CENTER)
+        label = wx.StaticText(self, label='This is a list of available task modules.')
+        self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
 
-        self.control = wx.ListBox(self, style=wx.LB_SINGLE)
-        self.sizer.Add(self.control, flag=wx.ALIGN_CENTER|wx.EXPAND)
+        modules = []
+        for _, name, _ in pkgutil.iter_modules(['tasks']):
+            fh = open(os.path.join('tasks', '%s.py' % name), 'r')
+            try:
+                desc = fh.readline()[1:].strip()
+            except:
+                desc = ''
+            loaded = self.database.is_task_module_loaded(name)
+            modules.append((name, desc, loaded))
+            fh.close()
 
-        cancel_button = wx.Button(self, id=wx.ID_CANCEL)
-        self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+        self.control = wx.CheckListBox(self)
+        for (idx, (name, desc, loaded)) in enumerate(modules):
+            self.control.Append('%s: %s' % (name, desc), name)
+            self.control.Check(idx, loaded)
+        self.sizer.Add(self.control, flag=wx.EXPAND)
 
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        close_button = wx.Button(self, id=wx.ID_CLOSE)
+        self.sizer.Add(close_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnClose, close_button)
 
         self.SetSizer(self.sizer)
         self.SetAutoLayout(1)
         self.sizer.Fit(self)
 
-        self.log_queue = Queue.Queue(100)
+    def OnClose(self, event):
+        self.loaded = []
+        for idx in self.control.GetChecked():
+            self.loaded.append(self.control.GetClientData(idx))
+        self.EndModal(wx.OK)
 
-        self.thread = threading.Thread(target=self.DownloadFile)
-        self.thread.daemon = True
-        self.thread.start()
-
-    def OnCancel(self, event):
-        self.EndModal(wx.CANCEL)
-
-    def OnIdle(self, event):
-        while True:
-            try:
-                item = self.log_queue.get(False)
-                self.control.AppendAndEnsureVisible(item)
-            except Queue.Empty:
-                break
-
-        if not self.thread.is_alive():
-            self.EndModal(wx.OK)
-
-    def GetData(self):
-        return self.data
-
-    def DownloadFile(self):
-        driver = WebDriver()
-
-        tags = []
-        for line in open(TAGS_FILE, 'r'):
-            tags.append(line.strip())
-        tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-        tasks = map(lambda pair: WebTagPairFlickrTask(driver, pair), tag_pairs)
-
-        vector_provider = NullVectorProvider()
-        message_layer = MessageLayer(vector_provider,
-                                     common.BLOCK_SIZE,
-                                     common.MAX_UNIQUE_BLOCKS,
-                                     tasks,
-                                     common.TASKS_PER_MESSAGE,
-                                     create_logger(self.log_queue),
-                                     mac=True)
-        self.data = message_layer.receive(self.address)
-
-        driver.close()
+    def GetLoaded(self):
+        return self.loaded
 
 class ProxyFrame(wx.Frame):
     my_title = 'Collage proxy client'
@@ -160,10 +242,12 @@ class ProxyFrame(wx.Frame):
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_OPEN, '&Open...', 'View censored documents')
         self.Bind(wx.EVT_MENU, self.OnOpen, item)
-        item = filemenu.Append(wx.ID_ANY, '&Fetch news', 'Download the latest news')
+        item = filemenu.Append(wx.ID_ANY, '&Fetch latest news', 'Download the latest news')
         self.Bind(wx.EVT_MENU, self.OnFetch, item)
         item = filemenu.Append(wx.ID_ANY, '&Update task database', 'Fetch the latest task database')
         self.Bind(wx.EVT_MENU, self.OnUpdate, item)
+        item = filemenu.Append(wx.ID_ANY, '&Task modules', 'Select task modules')
+        self.Bind(wx.EVT_MENU, self.OnModules, item)
         filemenu.AppendSeparator()
         item = filemenu.Append(wx.ID_EXIT, 'E&xit', 'Terminate the program')
         self.Bind(wx.EVT_MENU, self.OnExit, item)
@@ -172,9 +256,8 @@ class ProxyFrame(wx.Frame):
         menubar.Append(filemenu, '&File')
         self.SetMenuBar(menubar)
 
-        self.CreateStatusBar()
-
         self.control = wx.html.HtmlWindow(self)
+        self.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.OnLinkClick, self.control)
 
         self.Show(True)
 
@@ -188,34 +271,75 @@ class ProxyFrame(wx.Frame):
         dlg.Destroy()
 
     def OnFetch(self, event):
-        today = datetime.utcnow()
+        today = datetime.datetime.utcnow()
         address = common.format_address(today)
 
         for seen in self.database.get_addresses():
             if address == seen:
-                wx.MessageDialog(self,
-                                 'You have already downloaded the latest news',
-                                 'Download complete')
+                dlg = wx.MessageDialog(self,
+                                       'You have already downloaded the latest news',
+                                       'Download complete',
+                                       style=wx.OK)
+                dlg.ShowModal()
+                dlg.Destroy()
                 return
 
-        dlg = FetchFrame(self, address)
+        dlg = FetchFrame(self, self.db_filename, address)
         rc = dlg.ShowModal()
         data = dlg.GetData()
         if rc == wx.OK and data is not None:
             self.database.add_file(address, data)
 
     def OnUpdate(self, event):
-        dlg = FetchFrame(self, common.UPDATE_ADDRESS)
-        rc = dlg.ShowModal()
-        data = dlg.GetData()
-        if rc == wx.OK and data is not None:
-            tags = data.split()
-            self.database.set_tags(tags)
+        pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
+        match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
+        block = match.group(1)
+        block = re.sub(r'<a href=".*?".*?>', '', block)
+        block = re.sub(r'</a>', '', block)
+        block = re.sub(r'&nbsp;', '', block)
+
+        tags = block.split()
+        tag_pairs = [(a, b) for a in tags for b in tags if a < b] 
+
+        tasks = []
+        for pair in tag_pairs:
+            tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
+        self.database.delete_tasks()
+        self.database.add_tasks(tasks)
+
+#        dlg = FetchFrame(self, self.db_filename, common.UPDATE_ADDRESS)
+#        rc = dlg.ShowModal()
+#        data = dlg.GetData()
+#        if rc == wx.OK and data is not None:
+#            tags = data.split()
+#            self.database.set_tags(tags)
+
+    def OnModules(self, event):
+        dlg = TasksFrame(self, self.db_filename)
+        if dlg.ShowModal() == wx.OK:
+            self.database.set_loaded_task_modules(dlg.GetLoaded())
+        dlg.Destroy()
 
     def OnExit(self, event):
         self.Close(True)
 
-class Database:
+    def OnLinkClick(self, event):
+        webbrowser.open(event.GetLinkInfo().GetHref())
+
+class Snippet(object):
+    def __init__(self, module, command):
+        self.module = module
+        self.command = command
+
+    def get_module(self):
+        return self.module
+
+    def execute(self, driver):
+        pkg = __import__('tasks', fromlist=[str(self.module)])
+        mod = pkg.__getattribute__(self.module)
+        return eval(self.command, mod.__dict__, {'driver': driver})
+
+class Database(object):
     def __init__(self, filename):
         self.conn = sqlite3.connect(filename)
         self.conn.row_factory = sqlite3.Row
@@ -224,6 +348,10 @@ class Database:
                              (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
         self.conn.execute('''CREATE TABLE IF NOT EXISTS tags
                              (tag TEXT)''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS task_modules
+                             (name TEXT)''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS tasks
+                             (module TEXT, command TEXT)''')
         self.conn.commit()
 
     def add_file(self, address, contents):
@@ -249,25 +377,51 @@ class Database:
 
         return addresses
 
-    def get_tags(self):
-        tags = set()
-        for row in self.conn.execute('SELECT tag FROM tags'):
-            tags.add(row['tag'])
-        return tags
+    def is_task_module_loaded(self, module):
+        cur = self.conn.execute('''SELECT name FROM task_modules
+                                   WHERE name = ?''',
+                                (module,))
+        return cur.fetchone() is not None
 
-    def set_tags(self, tags):
-        self.conn.execute('DELETE FROM tags')
+    def set_loaded_task_modules(self, modules):
+        self.conn.execute('DELETE FROM task_modules')
+        for module in modules:
+            self.conn.execute('INSERT INTO task_modules (name) VALUES (?)', (module,))
+        self.conn.commit()
 
-        for tag in tags:
-            self.conn.execute('INSERT INTO tags (tag) VALUES (?)', (tag,))
+    def get_loaded_task_modules(self):
+        cur = self.conn.execute('SELECT name FROM task_modules')
+        modules = []
+        for row in cur:
+            modules.append(row['name'])
+        return modules
 
+    def get_tasks(self):
+        cur = self.conn.execute('SELECT module,command FROM tasks')
+        tasks = []
+        for row in cur:
+            tasks.append(Snippet(row['module'], row['command']))
+        return tasks
+
+    def add_tasks(self, tasks):
+        for (module, command) in tasks:
+            self.conn.execute('INSERT INTO tasks (module, command) VALUES (?, ?)',
+                              (module, command))
+        self.conn.commit()
+
+    def delete_tasks(self):
+        self.conn.execute('DELETE FROM tasks')
         self.conn.commit()
 
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
     parser.set_defaults(database='proxy_client.sqlite')
-    parser.add_option('-d', '--database', dest='database', action='store', type='string', help='SQLite database')
+    parser.add_option('-d', '--database',
+                      dest='database',
+                      action='store',
+                      type='string',
+                      help='SQLite database')
     (options, args) = parser.parse_args()
 
     app = wx.App(False)

@@ -36,7 +36,7 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch):
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def get_news(today):
-    return 'Nothing interesting happened on %d-%d-%d' % (today.year, today.month, today.day)
+    return 'New for %d-%d-%d is on <a href="http://news.bbc.co.uk">BBC</a>' % (today.year, today.month, today.day)
 
 def get_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
