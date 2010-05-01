@@ -2,12 +2,15 @@
 
 import hashlib
 import base64
+from datetime import datetime, timedelta
 
 from collage.messagelayer import Task
 
 from vectors import OutguessVector
 
 from selenium.common.exceptions import NoSuchElementException
+
+max_age = timedelta(3,)
 
 class WebTagPairFlickrTask(Task):
     def __init__(self, driver, tags):
@@ -74,6 +77,16 @@ class WebTagPairFlickrTask(Task):
 
                 ####################
                 # Photo summary page
+
+                try:
+                    uploaded_link = d.find_element_by_xpath('//a[@property="dc:date"]')
+                    uploaded_string = uploaded_link.get_text()
+                    uploaded_date = datetime.strptime(uploaded_string, '%B %d, %Y')
+                    print 'Photo uploaded on: %s' % (str(uploaded_date),)
+                    if datetime.now() - uploaded_date > max_age:
+                        return
+                except NoSuchElementException:
+                    pass
 
                 try:
                     zoom_button = d.find_element_by_id('photo_gne_button_zoom')

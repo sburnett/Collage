@@ -16,7 +16,7 @@ import wx
 import wx.html
 import wx.calendar
 
-from collage.messagelayer import MessageLayer
+from collage.messagelayer import MessageLayer, MessageLayerError
 
 from providers import NullVectorProvider
 from instruments import create_logger
@@ -48,7 +48,10 @@ class DownloadThread(threading.Thread):
                                      common.TASKS_PER_MESSAGE,
                                      create_logger(self.log_queue),
                                      mac=True)
-        self.data = message_layer.receive(self.address)
+        try:
+            self.data = message_layer.receive(self.address)
+        except MessageLayerError:
+            pass
 
         driver.close()
 
@@ -287,8 +290,16 @@ class ProxyFrame(wx.Frame):
         dlg = FetchFrame(self, self.db_filename, address)
         rc = dlg.ShowModal()
         data = dlg.GetData()
-        if rc == wx.OK and data is not None:
-            self.database.add_file(address, data)
+        if rc == wx.OK:
+            if data is None:
+                dlg = wx.MessageDialog(self,
+                                       'Cannot download the latest news. Try activating additional task modules.',
+                                       'Fetch error',
+                                       style=wx.OK|wx.ICON_ERROR)
+                dlg.ShowModal()
+                dlg.Destroy()
+            else:
+                self.database.add_file(address, data)
 
     def OnUpdate(self, event):
         pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
