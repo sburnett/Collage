@@ -4,6 +4,6 @@
     </head>
 
     <body>
-        Thank you for your photo donation. Your photo will be uploaded to your Flickr account within the next {{expiration}} seconds.
+        Thank you for your photo donation. Your photo will be uploaded to your Flickr account within the next {{expiration}} hours.
     </body>
 </html>

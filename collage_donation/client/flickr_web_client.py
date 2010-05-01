@@ -25,8 +25,26 @@ def get_latest_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
     block = match.group(1)
-    output = re.sub('href=".*?"', 'href=""', block)
-    open('views/tags.tpl', 'w').write(output)
+    of = open('views/tags.tpl', 'w')
+    matches = re.finditer(r'<a href=".*?" style="font-size: (?P<size>\d+)px;">(?P<tag>.*?)</a>', block)
+    for (idx, match) in enumerate(matches):
+        print >>of, '(new YAHOO.widget.Button({ type: "checkbox", label: "%s", id: "check%d", name: "check%d", value: "%s", container: "tagsbox"})).setStyle("font-size", "%spx");' % (match.group('tag'), idx, idx, match.group('tag'), match.group('size'))
+    print >>of, 'document.write("<input type=\'hidden\' name=\'numtags\' value=\'%d\'/>");' % (idx+1)
+    of.close()
+
+def check_credentials():
+    if 'token' not in bottle.request.COOKIES or \
+            'userid' not in bottle.request.COOKIES:
+        return False
+
+    token = bottle.request.COOKIES['token']
+    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    try:
+        response = f.auth_checkToken()
+    except flickrapi.FlickrError:
+        return False
+
+    return True
 
 @route('/')
 def index():
@@ -35,6 +53,10 @@ def index():
         bottle.redirect('/upload')
     else:
         bottle.redirect('/login')
+
+@route('/static/:filename#.*#')
+def send_static(filename):
+    return bottle.send_file(filename, 'static')
 
 @route('/login')
 @view('login')
@@ -50,23 +72,38 @@ def logout():
 @route('/upload')
 @view('upload')
 def upload():
+    if not check_credentials():
+        bottle.redirect('/login')
     return dict()
 
 @route('/upload', method='POST')
 def process():
-    if 'token' not in bottle.request.COOKIES \
-            or 'userid' not in bottle.request.COOKIES:
+    if not check_credentials():
         bottle.redirect('/login')
     elif 'submit' not in bottle.request.POST:
         bottle.redirect('/upload')
     else:
         title = bottle.request.POST.get('title', '').strip()
-        uploaded = bottle.request.POST.get('vector') 
+        uploaded = bottle.request.POST.get('vector')
         if uploaded == '':
-            return bottle.template('upload', error='Must upload photo')
+            return bottle.template('upload', error='You must select a photo to upload')
         vector = uploaded.file.read()
-        tags = bottle.request.POST.get('tags', '').strip().split()
-        expiration = int(bottle.request.POST.get('expiration', '').strip())
+        try:
+            numtags = int(bottle.request.POST.get('numtags', '').strip())
+        except ValueError:
+            return bottle.template('upload', error='Inconsistent upload state. Please try again.')
+        numtags = max(numtags, 200)     # Hard clamp on the number of tags, to prevent DoS
+        tags = []
+        for idx in range(numtags):
+            name = 'check%d' % idx
+            if name in bottle.request.POST:
+                tags.append(bottle.request.POST[name])
+        if len(tags) < 3:
+            return bottle.template('upload', error='Please select at least 3 tags from the list')
+        try:
+            expiration = 60*60*int(bottle.request.POST.get('expiration', '').strip())
+        except ValueError:
+            return bottle.template('upload', error='Please enter a valid number of hours')
         token = bottle.request.COOKIES['token']
         userid = bottle.request.COOKIES['userid']
 
@@ -76,7 +113,10 @@ def process():
         attributes.append(('token', token))
         attributes.append(('userid', userid))
 
-        rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
+        try:
+            rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
+        except:
+            return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
 
         return bottle.template('process', expiration=expiration)
 
