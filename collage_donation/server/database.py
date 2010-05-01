@@ -253,19 +253,24 @@ class CleanupDatabase(DonationDatabase):
         super(CleanupDatabase, self).__init__(db_dir)
 
     def cleanup(self):
-        """Erase vectors that are older than their expiration data."""
+        """Mark vectors that are older than their expiration date
+        as "done", so that they can be returned to their owners
+        to be uploaded without embedded content."""
 
         cur = self._conn.execute('''SELECT rowid,key FROM vectors
                                     WHERE expiration < CURRENT_TIMESTAMP''')
 
         for row in cur:
-            self._conn.execute('''DELETE FROM metadata
-                                  WHERE vector_id = ?''', (row['rowid'],))
-            self._conn.execute('''DELETE FROM vectors
+            self._conn.execute('''UPDATE vectors SET done = 1
                                   WHERE rowid = ?''', (row['rowid'],))
-            try:
-                os.unlink(self.get_filename(row['key']))
-            except OSError:
-                pass
+
+            #self._conn.execute('''DELETE FROM metadata
+            #                      WHERE vector_id = ?''', (row['rowid'],))
+            #self._conn.execute('''DELETE FROM vectors
+            #                      WHERE rowid = ?''', (row['rowid'],))
+            #try:
+            #    os.unlink(self.get_filename(row['key']))
+            #except OSError:
+            #    pass
 
         self._conn.commit()

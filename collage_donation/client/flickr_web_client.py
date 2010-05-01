@@ -118,7 +118,7 @@ def process():
         except:
             return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
 
-        return bottle.template('process', expiration=expiration)
+        return bottle.template('process', expiration=expiration/(60*60))
 
 @route('/callback')
 def callback():
