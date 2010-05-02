@@ -23,6 +23,8 @@ from instruments import create_logger
 
 import proxy_common as common
 
+import pdb
+
 class DownloadThread(threading.Thread):
     def __init__(self, log_queue, db_filename, address):
         super(DownloadThread, self).__init__()
@@ -52,6 +54,8 @@ class DownloadThread(threading.Thread):
             self.data = message_layer.receive(self.address)
         except MessageLayerError:
             pass
+
+        pdb.set_trace()
 
         driver.close()
 
