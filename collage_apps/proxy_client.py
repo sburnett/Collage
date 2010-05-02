@@ -99,12 +99,14 @@ class FetchFrame(wx.Dialog):
         self.thread.daemon = True
         self.thread.start()
 
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.OnTick, self.timer)
+        self.timer.Start(milliseconds=100, oneShot=False)
 
     def OnCancel(self, event):
         self.EndModal(wx.CANCEL)
 
-    def OnIdle(self, event):
+    def OnTick(self, event):
         while True:
             try:
                 item = self.log_queue.get(False)
@@ -114,6 +116,7 @@ class FetchFrame(wx.Dialog):
 
         if not self.thread.is_alive():
             self.data = self.thread.get_data()
+            self.timer.Stop()
             self.EndModal(wx.OK)
 
     def GetData(self):
