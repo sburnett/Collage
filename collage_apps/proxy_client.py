@@ -201,8 +201,8 @@ class TasksFrame(wx.Dialog):
         self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
 
         modules = []
-        for _, name, _ in pkgutil.iter_modules(['tasks']):
-            fh = open(os.path.join('tasks', '%s.py' % name), 'r')
+        for _, name, _ in pkgutil.iter_modules(['taskmodules']):
+            fh = open(os.path.join('taskmodules', '%s.py' % name), 'r')
             try:
                 desc = fh.readline()[1:].strip()
             except:
@@ -346,7 +346,7 @@ class Snippet(object):
         return self.module
 
     def execute(self, driver):
-        pkg = __import__('tasks', fromlist=[str(self.module)])
+        pkg = __import__('taskmodules', fromlist=[str(self.module)])
         mod = pkg.__getattribute__(self.module)
         return eval(self.command, mod.__dict__, {'driver': driver})
 

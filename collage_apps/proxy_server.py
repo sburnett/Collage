@@ -36,7 +36,24 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch):
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def get_news(today):
-    return 'New for %d-%d-%d is on <a href="http://news.bbc.co.uk">BBC</a>' % (today.year, today.month, today.day)
+    pagedata = urllib.urlopen('http://feeds.reuters.com/reuters/topNews?format=xml').read()
+    matches = re.finditer('<link>(?P<link>.*?)</link>', pagedata)
+    urls = []
+    for match in matches:
+        urls.append(match.group('link'))
+
+    stories = []
+    for url in urls[2:]:
+        pagedata = urllib.urlopen(url).read()
+
+        match = re.search('(?P<title><h1>.*?</h1>).*<span class="focusParagraph">(?P<story>.*?)<div class="relatedTopicButtons">', pagedata, re.I|re.S)
+        if match is None:
+            print "Couldn't parse %s" % url
+        else:
+            stories.append(match.group('title') + match.group('story'))
+
+    payload = ''.join(stories)
+    return payload
 
 def get_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
