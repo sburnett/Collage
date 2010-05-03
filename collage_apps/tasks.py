@@ -108,6 +108,29 @@ class DonateTagPairFlickrTask(Task):
     def _hash(self):
         return hashlib.sha1(' '.join(self._tags)).digest()
 
+class DonateDirectoryTask(Task):
+    def __init__(self, directory, database):
+        self._directory = directory
+        self._db = database
+
+    def get_directory(self):
+        return self._directory
+
+    def send(self, id, vector):
+        photo = open(self._db.get_filename(vector.get_key()), 'wb')
+        photo.write(vector.get_data())
+        photo.flush()
+        self._db.mark_done(vector.get_key())
+
+    def receive(self, id):
+        raise NotImplementedError('Use proxy client')
+
+    def can_embed(self, id, data):
+        return True
+
+    def _hash(self):
+        return hashlib.sha1(' '.join(self._directory)).digest()
+
 class DirectTwitterTask(Task):
     def __init__(self, twitter, username, VectorClass):
         self._twitter = twitter
