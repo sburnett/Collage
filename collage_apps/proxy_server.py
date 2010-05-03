@@ -7,20 +7,25 @@ from optparse import OptionParser
 import threading
 import urllib
 import re
+import base64
 
 from collage.messagelayer import MessageLayer
 
-from tasks import DonateTagPairFlickrTask
+from tasks import DonateTagPairFlickrTask, DonateDirectoryTask
 from providers import DonatedVectorProvider
 from instruments import timestamper
 
 import proxy_common as common
 
-def send_news(address, data, db_dir, tags, send_ratio, killswitch):
+def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir):
     database = AppDatabase(db_dir, 'proxy')
 
-    tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-    tasks = map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs)
+    tasks = []
+    #tag_pairs = [(a, b) for a in tags for b in tags if a < b]
+    #tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
+    if local_dir is not None:
+        tasks.append(DonateDirectoryTask(local_dir, address, database))
+
     vector_provider = DonatedVectorProvider(database, killswitch)
 
     message_layer = MessageLayer(vector_provider,
@@ -31,29 +36,32 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch):
                                  timestamper,
                                  mac=True)
 
-    print 'Sending message: %s' % data
+    #print 'Sending message: %s' % data
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def get_news(today):
-    pagedata = urllib.urlopen('http://feeds.reuters.com/reuters/topNews?format=xml').read()
-    matches = re.finditer('<link>(?P<link>.*?)</link>', pagedata)
-    urls = []
-    for match in matches:
-        urls.append(match.group('link'))
+    return 'This is the news'
 
-    stories = []
-    for url in urls[2:]:
-        pagedata = urllib.urlopen(url).read()
-
-        match = re.search('(?P<title><h1>.*?</h1>).*<span class="focusParagraph">(?P<story>.*?)<div class="relatedTopicButtons">', pagedata, re.I|re.S)
-        if match is None:
-            print "Couldn't parse %s" % url
-        else:
-            stories.append(match.group('title') + match.group('story'))
-
-    payload = ''.join(stories)
-    return payload
+#def get_news(today):
+#    pagedata = urllib.urlopen('http://feeds.reuters.com/reuters/topNews?format=xml').read()
+#    matches = re.finditer('<link>(?P<link>.*?)</link>', pagedata)
+#    urls = []
+#    for match in matches:
+#        urls.append(match.group('link'))
+#
+#    stories = []
+#    for url in urls[2:]:
+#        pagedata = urllib.urlopen(url).read()
+#
+#        match = re.search('(?P<title><h1>.*?</h1>).*<span class="focusParagraph">(?P<story>.*?)<div class="relatedTopicButtons">', pagedata, re.I|re.S)
+#        if match is None:
+#            print "Couldn't parse %s" % url
+#        else:
+#            stories.append(match.group('title') + match.group('story'))
+#
+#    payload = ''.join(stories)
+#    return payload
 
 def get_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
@@ -68,10 +76,13 @@ def get_tags():
 def main():
     usage = 'usage: %s [options] <db_dir>'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(send_ratio=100)
-    parser.add_option('-r', '--send-ratio',
-                      dest='send_ratio', action='store', type='float',
+    parser.set_defaults(send_ratio=100, local_dir=None)
+    parser.add_option('-r', '--send-ratio', dest='send_ratio',
+                      action='store', type='float',
                       help='Ratio between data to send and total data length')
+    parser.add_option('-d', '--local-dir', dest='local_dir',
+                      action='store', type='string',
+                      help='Local content host directory (for testing)')
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
@@ -90,7 +101,7 @@ def main():
         killswitch = threading.Event()
 
         thread = threading.Thread(target=send_news,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch))
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, options.local_dir))
         thread.daemon = True
         thread.start()
 

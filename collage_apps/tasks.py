@@ -8,6 +8,8 @@ import time
 import sys
 import hashlib
 
+import pdb
+
 from collage.messagelayer import Task
 
 from vectors import OutguessVector, SimulatedVector
@@ -108,10 +110,14 @@ class DonateTagPairFlickrTask(Task):
     def _hash(self):
         return hashlib.sha1(' '.join(self._tags)).digest()
 
+    def get_attributes(self):
+        return map(lambda t: ('tag', t), self._tags)
+
 class DonateDirectoryTask(Task):
-    def __init__(self, directory, database):
+    def __init__(self, directory, id, database):
         self._directory = directory
         self._db = database
+        self._id = base64.b64encode(hashlib.sha1(id).digest(), '-_')
 
     def get_directory(self):
         return self._directory
@@ -129,7 +135,10 @@ class DonateDirectoryTask(Task):
         return True
 
     def _hash(self):
-        return hashlib.sha1(' '.join(self._directory)).digest()
+        return hashlib.sha1(self._directory + self._id).digest()
+
+    def get_attributes(self):
+        return [('id', self._id)]
 
 class DirectTwitterTask(Task):
     def __init__(self, twitter, username, VectorClass):

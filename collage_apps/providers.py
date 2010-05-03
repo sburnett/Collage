@@ -3,6 +3,8 @@ import random
 import datetime
 import time
 
+import pdb
+
 from collage.vectorlayer import VectorProvider, EncodingError
 
 from vectors import DonatedOutguessVector
@@ -72,9 +74,6 @@ class DonatedVectorProvider(VectorProvider):
         shuffled_tasks = tasks
         random.shuffle(shuffled_tasks)
 
-        for task in tasks:
-            print task.get_tags()
-
         while not self._killswitch.is_set():
             for task in shuffled_tasks:
                 vector = self._find_vector(task)
@@ -90,8 +89,7 @@ class DonatedVectorProvider(VectorProvider):
         if self._killswitch.is_set():
             return None
 
-        (a, b) = task.get_tags()
-        attrs = [('tag', a), ('tag', b)]
+        attrs = task.get_attributes()
         vectors = self._db.find_vectors(attrs)
 
         if len(vectors) > 0:

@@ -55,8 +55,6 @@ class DownloadThread(threading.Thread):
         except MessageLayerError:
             pass
 
-        pdb.set_trace()
-
         driver.close()
 
     def get_data(self):

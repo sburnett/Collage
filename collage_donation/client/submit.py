@@ -8,7 +8,7 @@ from rpc import submit
 def main():
     usage = 'usage: %s [options] <application>'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(url='http://fenway.gtnoise.net:8001', attributes=[], expiration=86400)
+    parser.set_defaults(url='http://127.0.0.1:8000', attributes=[], expiration=86400)
     parser.add_option('-u', '--url', dest='url', action='store', type='string', help='Server URL')
     parser.add_option('-a', '--attribute', dest='attributes', action='append', type='string', help='Vector attributes')
     parser.add_option('-l', '--lifetime', dest='expiration', action='store', type='int', help='Lifetime of request')
