@@ -6,6 +6,7 @@ import time
 import sys
 import base64
 import hashlib
+import glob
 
 APPLICATION_NAME = 'proxy'
 
@@ -49,15 +50,15 @@ def donate(directory, filename, id):
             return
 
 def main():
-    usage = 'usage: %s <host directory> <photo> <id>'
+    usage = 'usage: %s <host directory> <source directory> <id>'
     if len(sys.argv) != 4:
         raise ValueError(usage)
 
     directory = sys.argv[1]
-    filename = sys.argv[2]
+    source_dir = sys.argv[2]
     id = base64.b64encode(hashlib.sha1(sys.argv[3]).digest(), '-_')
-
-    donate(directory, filename, id)
+    for filename in glob.glob(os.path.join(source_dir, '*.jpg')):
+        donate(directory, filename, id)
 
 if __name__ == '__main__':
     main()
