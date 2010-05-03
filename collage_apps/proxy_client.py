@@ -144,7 +144,7 @@ class OpenFrame(wx.Dialog):
         self.Bind(wx.calendar.EVT_CALENDAR, self.OnOpen, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.OnChange, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.OnChange, self.control)
-        self.OnChange(None)
+        self.Bind(wx.calendar.EVT_CALENDAR_SEL_CHANGED, self.OnSel, self.control)
         
         button_panel = wx.Panel(self)
         self.sizer.Add(button_panel, flag=wx.EXPAND)
@@ -155,9 +155,9 @@ class OpenFrame(wx.Dialog):
         panel_sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
 
-        open_button = wx.Button(button_panel, id=wx.ID_OPEN)
-        panel_sizer.Add(open_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnOpen, open_button)
+        self.open_button = wx.Button(button_panel, id=wx.ID_OPEN)
+        panel_sizer.Add(self.open_button, flag=wx.ALIGN_RIGHT)
+        self.Bind(wx.EVT_BUTTON, self.OnOpen, self.open_button)
 
         button_panel.SetSizer(panel_sizer)
         button_panel.SetAutoLayout(1)
@@ -165,6 +165,9 @@ class OpenFrame(wx.Dialog):
         self.SetSizer(self.sizer)
         self.SetAutoLayout(1)
         self.sizer.Fit(self)
+
+        self.OnChange(None)
+        self.OnSel(None)
 
     def OnOpen(self, event):
         date = self.control.PyGetDate()
@@ -183,6 +186,13 @@ class OpenFrame(wx.Dialog):
                 self.control.SetAttr(date.day, avail_style)
 
         self.control.Refresh()
+
+    def OnSel(self, event):
+        current = self.control.PyGetDate()
+        if current in self.dates:
+            self.open_button.Enable()
+        else:
+            self.open_button.Disable()
 
     def GetAddress(self):
         return self.address
@@ -362,8 +372,6 @@ class Database(object):
 
         self.conn.execute('''CREATE TABLE IF NOT EXISTS downloads
                              (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS tags
-                             (tag TEXT)''')
         self.conn.execute('''CREATE TABLE IF NOT EXISTS task_modules
                              (name TEXT)''')
         self.conn.execute('''CREATE TABLE IF NOT EXISTS tasks
