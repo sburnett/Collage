@@ -34,13 +34,13 @@ class DownloadThread(threading.Thread):
         self.data = None
     
     def run(self):
-        driver = WebDriver()
+        self.driver = WebDriver()
 
         database = Database(self.db_filename)
         modules = database.get_loaded_task_modules()
         all_tasks = database.get_tasks()
         snippets = filter(lambda s: s.get_module() in modules, all_tasks)
-        tasks = map(lambda s: s.execute(driver), snippets)
+        tasks = map(lambda s: s.execute(self.driver), snippets)
 
         vector_provider = NullVectorProvider()
         message_layer = MessageLayer(vector_provider,
@@ -55,10 +55,13 @@ class DownloadThread(threading.Thread):
         except MessageLayerError:
             pass
 
-        driver.close()
+        self.driver.close()
 
     def get_data(self):
         return self.data
+
+    def close(self):
+        self.driver.close()
 
 class FetchFrame(wx.Dialog):
     def __init__(self, parent, db_filename, address):
@@ -86,6 +89,7 @@ class FetchFrame(wx.Dialog):
         cancel_button = wx.Button(self, id=wx.ID_CANCEL)
         self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+        self.Bind(wx.EVT_CLOSE, self.OnClose, self)
 
         self.SetSizer(self.sizer)
         self.SetAutoLayout(1)
@@ -102,7 +106,11 @@ class FetchFrame(wx.Dialog):
         self.timer.Start(milliseconds=100, oneShot=False)
 
     def OnCancel(self, event):
+        self.thread.close()
         self.EndModal(wx.CANCEL)
+
+    def OnClose(self, event):
+        self.thread.close()
 
     def OnTick(self, event):
         while True:
