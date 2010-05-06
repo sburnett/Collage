@@ -11,8 +11,6 @@ import math
 import coder
 import vectorlayer
 
-import pdb
-
 class MessageLayerError(Exception):
     pass
 
@@ -114,8 +112,6 @@ class MessageLayer(object):
 
     def send(self, identifier, data, num_vectors=0, send_ratio=1):
         """Send a message with an associated identifier."""
-
-        pdb.set_trace()
 
         self._instrument('begin send')
     
@@ -291,7 +287,6 @@ class MessageLayer(object):
                     except ValueError:
                         pass
                     else:
-                        pdb.set_trace()
                         self._instrument('end receive')
                         self._instrument('receive success')
                         return self._decode_data(data)

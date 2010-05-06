@@ -280,9 +280,9 @@ class ProxyFrame(wx.Frame):
             address = dlg.GetAddress()
             if dlg.NeedToFetch():
                 self.Fetch(address)
-            else:
+            contents = self.database.get_file(address)
+            if contents is not None:
                 self.SetTitle('%s - %s' % (address, self.my_title))
-                contents = self.database.get_file(address)
                 self.control.SetPage(contents)
 
     def Fetch(self, address):
@@ -292,7 +292,7 @@ class ProxyFrame(wx.Frame):
         if rc == wx.OK:
             if data is None:
                 dlg = wx.MessageDialog(self,
-                                       'Cannot download the latest news. Try activating additional task modules.',
+                                       'Cannot download the news from %s. Try activating additional task modules.' % address,
                                        'Fetch error',
                                        style=wx.OK|wx.ICON_ERROR)
                 dlg.ShowModal()
