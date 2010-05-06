@@ -144,7 +144,6 @@ class OpenFrame(wx.Dialog):
         self.Bind(wx.calendar.EVT_CALENDAR, self.OnOpen, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.OnChange, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.OnChange, self.control)
-        self.Bind(wx.calendar.EVT_CALENDAR_SEL_CHANGED, self.OnSel, self.control)
         
         button_panel = wx.Panel(self)
         self.sizer.Add(button_panel, flag=wx.EXPAND)
@@ -167,13 +166,13 @@ class OpenFrame(wx.Dialog):
         self.sizer.Fit(self)
 
         self.OnChange(None)
-        self.OnSel(None)
 
     def OnOpen(self, event):
         date = self.control.PyGetDate()
-        if date is None or date not in self.dates:
+        if date is None:
             return
         self.address = common.format_address(date)
+        self.need_to_fetch = date not in self.dates
         self.EndModal(wx.OK)
 
     def OnChange(self, event):
@@ -187,15 +186,11 @@ class OpenFrame(wx.Dialog):
 
         self.control.Refresh()
 
-    def OnSel(self, event):
-        current = self.control.PyGetDate()
-        if current in self.dates:
-            self.open_button.Enable()
-        else:
-            self.open_button.Disable()
-
     def GetAddress(self):
         return self.address
+
+    def NeedToFetch(self):
+        return self.need_to_fetch
 
     def OnCancel(self, event):
         self.EndModal(wx.CANCEL)
@@ -260,8 +255,6 @@ class ProxyFrame(wx.Frame):
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_OPEN, '&Open...', 'View censored documents')
         self.Bind(wx.EVT_MENU, self.OnOpen, item)
-        item = filemenu.Append(wx.ID_ANY, '&Fetch latest news', 'Download the latest news')
-        self.Bind(wx.EVT_MENU, self.OnFetch, item)
         item = filemenu.Append(wx.ID_ANY, '&Update task database', 'Fetch the latest task database')
         self.Bind(wx.EVT_MENU, self.OnUpdate, item)
         item = filemenu.Append(wx.ID_ANY, '&Task modules', 'Select task modules')
@@ -281,27 +274,18 @@ class ProxyFrame(wx.Frame):
 
     def OnOpen(self, event):
         dlg = OpenFrame(self, self.db_filename)
-        if dlg.ShowModal() == wx.OK:
-            address = dlg.GetAddress()
-            self.SetTitle('%s - %s' % (address, self.my_title))
-            contents = self.database.get_file(address)
-            self.control.SetPage(contents)
+        result = dlg.ShowModal()
         dlg.Destroy()
+        if result == wx.OK:
+            address = dlg.GetAddress()
+            if dlg.NeedToFetch():
+                self.Fetch(address)
+            else:
+                self.SetTitle('%s - %s' % (address, self.my_title))
+                contents = self.database.get_file(address)
+                self.control.SetPage(contents)
 
-    def OnFetch(self, event):
-        today = datetime.datetime.utcnow()
-        address = common.format_address(today)
-
-        for seen in self.database.get_addresses():
-            if address == seen:
-                dlg = wx.MessageDialog(self,
-                                       'You have already downloaded the latest news',
-                                       'Download complete',
-                                       style=wx.OK)
-                dlg.ShowModal()
-                dlg.Destroy()
-                return
-
+    def Fetch(self, address):
         dlg = FetchFrame(self, self.db_filename, address)
         rc = dlg.ShowModal()
         data = dlg.GetData()
