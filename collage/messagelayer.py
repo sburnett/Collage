@@ -6,9 +6,12 @@ import struct
 import random
 from math import log, ceil
 import bz2
+import math
 
 import coder
 import vectorlayer
+
+import pdb
 
 class MessageLayerError(Exception):
     pass
@@ -26,12 +29,10 @@ class MessageLayer(object):
         the next power of two, including the padding header. The padding header
         contains the length of the padding appended to the message."""
 
-    _int_bytes = struct.calcsize('I')
-    _short_bytes = struct.calcsize('H')
-    _char_bytes = struct.calcsize('B')
-    _format_flags = {_int_bytes: 'I',
-                    _short_bytes: 'H',
-                    _char_bytes: 'B'}
+    _header_bytes = { struct.calcsize('I'): 'I'
+                    , struct.calcsize('H'): 'H'
+                    , struct.calcsize('B'): 'B'
+                    }
 
     _header_compressed_mask = 0x80
     _header_size_mask = 0x7F
@@ -60,36 +61,39 @@ class MessageLayer(object):
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
 
     def _sender_get_preamble_size(self, data_len):
-        if data_len + self._char_bytes < (1 << self._char_bytes*8):
-            return self._char_bytes
-        elif data_len + self._short_bytes < (1 << self._short_bytes*8):
-            return self._short_bytes
-        elif data_len + self._int_bytes < (1 << self._int_bytes*8):
-            return self._int_bytes
-        else:
+        candidates = set()
+        for header_bytes in self._header_bytes.keys():
+            candidate = int(math.log(header_bytes + data_len, 2)/8 + 1)
+            if candidate <= header_bytes:
+                candidates.add(header_bytes)
+        try:
+            return min(candidates)
+        except ValueError:
             raise ValueError('Message too big')
 
     def _format_message_data(self, data):
         """Pad a message with zeroes out to the nearest power of two, and store
             the length of the pad at the front of the message."""
         preamble_len = self._sender_get_preamble_size(len(data))
-        format_flag = self._format_flags[preamble_len]
+        format_flag = self._header_bytes[preamble_len]
         data_len = len(data) + preamble_len
         real_len = 1
-        while real_len < max(data_len, self._block_size):
+        while real_len <= max(data_len, self._block_size):
             real_len <<= 1
+        real_len -= 1
         format_string = '%c%ds' % (format_flag, real_len - preamble_len)
         formatted_data = struct.pack(format_string, real_len - data_len, data)
         return formatted_data
 
     def _get_preamble_size(self, data_len):
-        if data_len < (1 << self._char_bytes*8):
-            return self._char_bytes
-        elif data_len < (1 << self._short_bytes*8):
-            return self._short_bytes
-        elif data_len < (1 << self._int_bytes*8):
-            return self._int_bytes
-        else:
+        candidates = set()
+        for header_bytes in self._header_bytes.keys():
+            candidate = int(math.log(data_len, 2)/8 + 1)
+            if candidate <= header_bytes:
+                candidates.add(header_bytes)
+        try:
+            return min(candidates)
+        except ValueError:
             raise ValueError('Message too big')
 
     def _prepare_payload(self, blocks, message_len):
@@ -111,12 +115,14 @@ class MessageLayer(object):
     def send(self, identifier, data, num_vectors=0, send_ratio=1):
         """Send a message with an associated identifier."""
 
+        pdb.set_trace()
+
         self._instrument('begin send')
     
         tasks = self._task_database.lookup(identifier)
 
         formatted_data = self._format_message_data(data)
-        data_len = len(formatted_data)
+        data_len = len(formatted_data)+1
         encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
 
         key = hashlib.sha1(identifier).digest()
@@ -204,16 +210,16 @@ class MessageLayer(object):
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
-        preamble_flag = self._format_flags[preamble_len]
+        preamble_flag = self._header_bytes[preamble_len]
         (padding_len,) = struct.unpack(preamble_flag, data[:preamble_len])
-        return data[preamble_len : len(data) - padding_len]
+        return data[preamble_len : len(data) - padding_len + 1]
 
     def _get_blocks(self, payload):
         (header,) = struct.unpack('B', payload[0])
         blocks_buf = payload[1:]
 
         compressed = header & self._header_compressed_mask != 0
-        message_len = 2**(header & self._header_size_mask)
+        message_len = 2**(header & self._header_size_mask) - 1
 
         if compressed:
             blocks_buf = bz2.decompress(blocks_buf)
@@ -285,6 +291,7 @@ class MessageLayer(object):
                     except ValueError:
                         pass
                     else:
+                        pdb.set_trace()
                         self._instrument('end receive')
                         self._instrument('receive success')
                         return self._decode_data(data)

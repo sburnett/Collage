@@ -193,6 +193,8 @@ class Decoder(object):
         if self.status() != self.num_message_blocks:
             raise ValueError
 
+        pdb.set_trace()
+
         data = ''
         for i in range(0, self.num_message_blocks):
             data += ''.join(map(chr, self.composite_blocks[i]))
@@ -200,6 +202,7 @@ class Decoder(object):
 
 def main():
     contents = open(sys.argv[1], 'rb').read()
+    to_fetch = int(sys.argv[2])
     block_size = 8
 
     encoder = Encoder(contents, block_size, 2)
@@ -207,13 +210,28 @@ def main():
 
     print 'Number of message blocks: %d' % num_blocks
 
+    blocks = []
+    for i in range(to_fetch):
+        blocks.append(encoder.next_block())
+
+    random.shuffle(blocks)
+
     decoder = Decoder(block_size, 2, len(contents))
+
     num_fetched = 0
-    while num_fetched < num_blocks:
-        decoder.process_block(encoder.next_block())
+    for block in blocks:
         num_fetched += 1
+        if decoder.have_all_message_blocks():
+            break
+        decoder.process_block(block)
+        decoder.status()
+
+    #while num_fetched < num_blocks:
+    #    decoder.process_block(encoder.next_block())
+    #    num_fetched += 1
 
     while not decoder.have_all_message_blocks():
+        print 'Hello'
         for i in range(0, 100):
             encoder.next_block()
         decoder.process_block(encoder.next_block())
