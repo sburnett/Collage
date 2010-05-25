@@ -14,10 +14,10 @@ rhos = [1.0 - ((1 + 1.0/f)/(1 + epsilon))]
 for i in range(1, f):
     rhos.append(((1 - rhos[0])*f)/((f-1)*(i+1)*i))
 
+assert math.fsum(rhos) == 1.0
+
 id_flag = 'i'
 id_size = struct.calcsize(id_flag)
-
-assert math.fsum(rhos) == 1.0
 
 def choose_degree(rand):
     sample = rand.random()

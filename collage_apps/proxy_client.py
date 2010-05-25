@@ -342,7 +342,14 @@ class ProxyFrame(wx.Frame):
         self.Close(True)
 
     def OnLinkClick(self, event):
-        webbrowser.open(event.GetLinkInfo().GetHref())
+        dlg = wx.MessageDialog(self,
+                               'This link will be opened in your regular Web browser and will not be fetched using Collage. Are you sure you want to continue?',
+                               'Warning: %s' % event.GetLinkInfo().GetHref(),
+                               style=wx.YES_NO|wx.ICON_EXCLAMATION)
+        rc = dlg.ShowModal()
+        dlg.Destroy()
+        if rc == wx.ID_YES:
+            webbrowser.open(event.GetLinkInfo().GetHref())
 
 class Snippet(object):
     def __init__(self, module, command):

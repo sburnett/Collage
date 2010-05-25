@@ -1,4 +1,4 @@
-# Decode censored content from Flickr
+# Test module that "downloads" images from local directory
 
 import hashlib
 import base64
