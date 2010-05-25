@@ -6,6 +6,9 @@ import flickrapi
 import urllib
 import re
 import sys
+import StringIO
+
+import Image
 
 import rpc
 
@@ -83,11 +86,30 @@ def process():
     elif 'submit' not in bottle.request.POST:
         bottle.redirect('/upload')
     else:
+        response = flickr.people_getInfo(user_id=userid)
+        ispro = response.find('person').attrib['ispro'] == '1'
+
         title = bottle.request.POST.get('title', '').strip()
         uploaded = bottle.request.POST.get('vector')
         if uploaded == '':
             return bottle.template('upload', error='You must select a photo to upload')
-        vector = uploaded.file.read()
+
+        data = uploaded.file.read()
+        if ispro:
+            vector = data
+        else:
+            img = Image.open(StringIO.StringIO(data))
+            (width, height) = img.size
+            ratio = min(1024./width, 768./height)
+            if ratio >= 1.0:
+                vector = data
+            else:
+                img = img.resize((int(ratio*width), int(ratio*height)), Image.ANTIALIAS)
+                outfile = StringIO.StringIO()
+                img.save(outfile, 'JPEG')
+                vector = outfile.getvalue()
+                outfile.close()
+
         try:
             numtags = int(bottle.request.POST.get('numtags', '').strip())
         except ValueError:
@@ -112,6 +134,7 @@ def process():
         attributes.append(('client', 'web'))
         attributes.append(('token', token))
         attributes.append(('userid', userid))
+        attributes.append(('ispro', ispro))
 
         try:
             rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
