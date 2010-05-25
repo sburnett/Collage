@@ -254,11 +254,12 @@ class TasksFrame(wx.Dialog):
 
 class ProxyFrame(wx.Frame):
     my_title = 'Collage proxy client'
-    def __init__(self, parent, db_filename):
+    def __init__(self, parent, db_filename, local_dir=None):
         wx.Frame.__init__(self, parent, title=self.my_title)
 
         self.db_filename = db_filename
         self.database = Database(db_filename)
+        self.local_dir = local_dir
 
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_OPEN, '&Open...', 'View censored documents')
@@ -322,6 +323,8 @@ class ProxyFrame(wx.Frame):
         tasks = []
         for pair in tag_pairs:
             tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
+        if self.local_dir is not None:
+            tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
         self.database.delete_tasks()
         self.database.add_tasks(tasks)
 
@@ -439,16 +442,21 @@ class Database(object):
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='proxy_client.sqlite')
+    parser.set_defaults(database='proxy_client.sqlite', localdir=None)
     parser.add_option('-d', '--database',
                       dest='database',
                       action='store',
                       type='string',
                       help='SQLite database')
+    parser.add_option('-l', '--local-dir',
+                      dest='localdir',
+                      action='store',
+                      type='string',
+                      help='Local content host directory (testing)')
     (options, args) = parser.parse_args()
 
     app = wx.App(False)
-    frame = ProxyFrame(None, options.database)
+    frame = ProxyFrame(None, options.database, options.localdir)
     app.MainLoop()
 
 if __name__ == '__main__':

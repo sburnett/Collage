@@ -169,17 +169,38 @@ class MessageLayer(object):
 
                 return (len(ciphertext), encoded_vector)
 
+            try:
+                lower_bound = upper_bound = cover_vector.estimate_max_capacity()
+            except NotImplementedError:
+                lower_bound = upper_bound = 2
+
+            # Step 1: Find a rough lower bound by continuously halving
+            # the estimate until we can successfully encode something.
             coded_vector = None
-            lower_bound = upper_bound = 2
+            while lower_bound > 2:
+                try:
+                    (current_len, coded_vector) = encode_vector(lower_bound)
+                except vectorlayer.EncodingError:
+                    upper_bound = lower_bound
+                    lower_bound /= 2
+                else:
+                    break
+
+            # Step 2: Find a rough upper bound by adjusting the upper
+            # (and lower) bounds in ever-increasing increments.
+            increment = 1
             while True:
                 try:
                     (current_len, coded_vector) = encode_vector(upper_bound)
                 except vectorlayer.EncodingError:
                     break
                 else:
+                    increment *= 2
                     lower_bound = upper_bound
-                    upper_bound *= 2
+                    upper_bound += increment
 
+            # Step 3: Continuously tighten bounds until
+            # within the margin, using binary search.
             while upper_bound - lower_bound > self._error_margin:
                 current_size = lower_bound + (upper_bound - lower_bound)/2
                 try:
@@ -190,6 +211,8 @@ class MessageLayer(object):
                     lower_bound = current_size
 
             if coded_vector:
+                cover_vector.record_estimate(current_size)
+
                 self._instrument('upload %d bytes in %d byte cover' % (current_len, len(coded_vector.get_data())))
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
                 print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()

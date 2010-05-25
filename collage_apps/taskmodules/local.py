@@ -22,10 +22,10 @@ class ReadDirectory(Task):
 
     def receive(self, id):
         key = base64.b64encode(id, '-_')
-        dir = os.path.join(self._directory, key)
+        directory = os.path.join(self._directory, key)
 
-        for filename in glob.iglob(os.path.join(dir, '*.jpg')):
-            data = open(os.path.join(dir, filename), 'r').read()
+        for filename in glob.iglob(os.path.join(directory, '*.jpg')):
+            data = open(os.path.join(directory, filename), 'r').read()
             yield OutguessVector(data)
 
     def _hash(self):

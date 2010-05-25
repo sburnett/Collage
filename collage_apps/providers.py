@@ -64,11 +64,12 @@ class SimulatedVectorProvider(VectorProvider):
         return vector
 
 class DonatedVectorProvider(VectorProvider):
-    def __init__(self, database, killswitch):
+    def __init__(self, database, killswitch, estimate_db=None):
         super(DonatedVectorProvider, self).__init__()
 
         self._db = database
         self._killswitch = killswitch
+        self._estimate_db = estimate_db
 
     def get_vector(self, tasks):
         shuffled_tasks = tasks
@@ -95,6 +96,6 @@ class DonatedVectorProvider(VectorProvider):
         if len(vectors) > 0:
             key = vectors[0]
             data = open(self._db.get_filename(key), 'rb').read()
-            return DonatedOutguessVector(data, key)
+            return DonatedOutguessVector(data, key, estimate_db=self._estimate_db)
         else:
             return None

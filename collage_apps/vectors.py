@@ -4,16 +4,18 @@ import base64
 import time
 import struct
 
+import numpy
 import hashlib
 import pdb
 
 from collage.vectorlayer import Vector, EncodingError
 
 class OutguessVector(Vector):
-    def __init__(self, data, timeout=10):
+    def __init__(self, data, timeout=10, estimate_db=None):
         super(OutguessVector, self).__init__(data)
         self._timeout = timeout
         self._decoded_data = None
+        self._estimate_db = estimate_db
 
     def encode(self, message, key):
         data_file = tempfile.NamedTemporaryFile()
@@ -52,6 +54,32 @@ class OutguessVector(Vector):
         print 'RETURNING: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
         return encoded_vector
 
+    def estimate_max_capacity(self):
+        if self._estimate_db is None:
+            return 2
+        
+        class_name = self.__class__.__name__
+        if class_name not in self._estimate_db:
+            return 2
+
+        xp = []
+        yp = []
+        for size in sorted(self._estimate_db[class_name].keys()):
+            for capacity in self._estimate_db[class_name][size]:
+                xp.append(size)
+                yp.append(capacity)
+
+        return max(numpy.interp(len(self._data), xp, yp), 2)
+
+    def record_estimate(self, estimate):
+        if self._estimate_db is not None:
+            mylen = len(self._data)
+            class_name = self.__class__.__name__
+            self._estimate_db.setdefault(class_name, {})
+            self._estimate_db[class_name].setdefault(mylen, [])
+            self._estimate_db[class_name][mylen].append(estimate)
+            self._estimate_db.sync()
+
     def decode(self, key):
         print 'Key: %s' % base64.b64encode(key)
         print 'Image hash: %s' % hashlib.md5(self._data).hexdigest()
@@ -86,8 +114,8 @@ class OutguessVector(Vector):
         return cmp(self._data, other._data)
 
 class DonatedOutguessVector(OutguessVector):
-    def __init__(self, data, key):
-        super(DonatedOutguessVector, self).__init__(data)
+    def __init__(self, data, key, estimate_db=None):
+        super(DonatedOutguessVector, self).__init__(data, estimate_db=estimate_db)
         self._key = key
 
     def encode(self, data, key):

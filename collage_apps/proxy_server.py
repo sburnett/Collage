@@ -8,6 +8,7 @@ import threading
 import urllib
 import re
 import base64
+import shelve
 
 from collage.messagelayer import MessageLayer
 
@@ -17,7 +18,7 @@ from instruments import timestamper
 
 import proxy_common as common
 
-def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir):
+def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, estimate_db):
     database = AppDatabase(db_dir, 'proxy')
 
     tasks = []
@@ -26,7 +27,7 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir):
     if local_dir is not None:
         tasks.append(DonateDirectoryTask(local_dir, address, database))
 
-    vector_provider = DonatedVectorProvider(database, killswitch)
+    vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
 
     message_layer = MessageLayer(vector_provider,
                                  common.BLOCK_SIZE,
@@ -73,14 +74,19 @@ def get_tags():
 def main():
     usage = 'usage: %s [options] <db_dir>'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(send_ratio=100, local_dir=None)
+    parser.set_defaults(send_ratio=100, local_dir=None, estimate_db='estimate_db')
     parser.add_option('-r', '--send-ratio', dest='send_ratio',
                       action='store', type='float',
                       help='Ratio between data to send and total data length')
     parser.add_option('-d', '--local-dir', dest='local_dir',
                       action='store', type='string',
                       help='Local content host directory (for testing)')
+    parser.add_option('-e', '--estimate-db', dest='estimate_db',
+                      action='store', type='string',
+                      help='Location of capacity estimation database')
     (options, args) = parser.parse_args()
+
+    estimate_db = shelve.open(options.estimate_db, writeback=True)
 
     if len(args) != 1:
         parser.error('Need to specify donation database directory')
@@ -98,7 +104,7 @@ def main():
         killswitch = threading.Event()
 
         thread = threading.Thread(target=send_news,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, options.local_dir))
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, options.local_dir, estimate_db))
         thread.daemon = True
         thread.start()
 

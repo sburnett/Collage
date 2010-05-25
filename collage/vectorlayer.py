@@ -25,6 +25,9 @@ class Vector(object):
     def encode(self, data, key):
         raise NotImplementedError
 
+    def estimate_max_capacity(self):
+        raise NotImplementedError
+
     def decode(self, key):
         raise NotImplementedError
 

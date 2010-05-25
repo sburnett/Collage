@@ -4,8 +4,6 @@ import struct
 import sys
 import numpy as np
 
-import pdb
-
 epsilon = 0.01
 q = 3
 aux_seed = 23
@@ -192,8 +190,6 @@ class Decoder(object):
     def message_data(self):
         if self.status() != self.num_message_blocks:
             raise ValueError
-
-        pdb.set_trace()
 
         data = ''
         for i in range(0, self.num_message_blocks):
