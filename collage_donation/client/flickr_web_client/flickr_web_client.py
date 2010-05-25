@@ -10,7 +10,7 @@ import StringIO
 
 import Image
 
-import rpc
+import collage_donation.client.rpc
 
 import pdb
 
