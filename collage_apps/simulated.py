@@ -14,10 +14,11 @@ import random
 
 from collage.messagelayer import MessageLayer
 
-from tasks import SimulatedTask
-from vectors import SimulatedVector
-from providers import NullVectorProvider, SimulatedVectorProvider
-from instruments import timestamper
+from collage_apps.tasks.sim import SimulatedTask
+from collage_apps.vectors.sim import SimulatedVector
+from collage_apps.providers.local import NullVectorProvider
+from collage_apps.providers.sim import SimulatedVectorProvider
+from collage_apps.instruments import timestamper
 
 def main():
     usage = 'usage: %s [options] <send|receive|delete> <id>'

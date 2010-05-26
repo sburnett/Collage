@@ -15,10 +15,10 @@ import flickrapi
 
 from collage.messagelayer import MessageLayer
 
-from tasks import TagPairFlickrTask
-from vectors import OutguessVector
-from providers import NullVectorProvider, DirectoryVectorProvider
-from instruments import timestamper
+from collage_apps.tasks.flickr import TagPairFlickrTask
+from collage_apps.vectors.jpeg import OutguessVector
+from collage_apps.providers.local import NullVectorProvider, DirectoryVectorProvider
+from collage_apps.instruments import timestamper
 
 def auth_flickr():
     """Authenticate with Flickr using our api key and secret.

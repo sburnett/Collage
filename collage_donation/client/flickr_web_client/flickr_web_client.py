@@ -7,6 +7,8 @@ import urllib
 import re
 import sys
 import StringIO
+import sqlite3
+from optparse import OptionParser
 
 import Image
 
@@ -23,7 +25,6 @@ flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'http://127.0.0.1:8000'
 APPLICATION_NAME = 'proxy'
-
 def get_latest_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
@@ -34,6 +35,17 @@ def get_latest_tags():
         print >>of, '(new YAHOO.widget.Button({ type: "checkbox", label: "%s", id: "check%d", name: "check%d", value: "%s", container: "tagsbox"})).setStyle("font-size", "%spx");' % (match.group('tag'), idx, idx, match.group('tag'), match.group('size'))
     print >>of, 'document.write("<input type=\'hidden\' name=\'numtags\' value=\'%d\'/>");' % (idx+1)
     of.close()
+
+def wait_for_key(key, title, token, tags):
+    conn = sqlite3.connect(wait_db)
+    cur = conn.execute('''INSERT INTO waiting (key, title, token)
+                                       VALUES (?, ?, ?)''',
+                       (key, title, token))
+    rowid = cur.lastrowid
+    for tag in tags:
+        conn.execute('INSERT INTO tags (tag, waiting_id) VALUES (?)', (tag, rowid))
+    conn.commit()
+    conn.close()
 
 def check_credentials():
     if 'token' not in bottle.request.COOKIES or \
@@ -128,18 +140,14 @@ def process():
             return bottle.template('upload', error='Please enter a valid number of hours')
         token = bottle.request.COOKIES['token']
         userid = bottle.request.COOKIES['userid']
-
         attributes = map(lambda tag: ('tag', tag), tags)
-        attributes.append(('title', title))
-        attributes.append(('client', 'web'))
-        attributes.append(('token', token))
-        attributes.append(('userid', userid))
-        attributes.append(('ispro', ispro))
 
         try:
-            rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
+            key = rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
         except:
             return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
+
+        wait_for_key(key, title, token, userid)
 
         return bottle.template('process', expiration=expiration/(60*60))
 
@@ -164,5 +172,21 @@ def callback():
     bottle.response.set_cookie('userid', userid, path='/')
     bottle.redirect('/')
 
-get_latest_tags()
-bottle.run(host='localhost', port=8080, reloader=True)
+def main():
+    usage = 'usage: %s [options]'
+    parser = OptionParser(usage=usage)
+    parser.set_defaults(database='waiting_keys.sqlite3')
+    parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
+    (options, args) = parser.parse_args()
+
+    global wait_db
+    wait_db = options.database
+
+    if len(args) != 0:
+        parser.error('Invalid argument')
+
+    get_latest_tags()
+    bottle.run(host='localhost', port=8080, reloader=True)
+
+if __name__ == '__main__':
+    main()

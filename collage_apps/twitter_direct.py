@@ -11,10 +11,10 @@ import twitter
 
 from collage.messagelayer import MessageLayer
 
-from tasks import DirectTwitterTask
-from vectors import BlatantVector
-from providers import NullVectorProvider, DirectoryVectorProvider
-from instruments import timestamper
+from collage_apps.tasks.twitter import DirectTwitterTask
+from collage_apps.vectors.tweet import BlatantVector
+from collage_apps.providers.local import NullVectorProvider, DirectoryVectorProvider
+from collage_apps.instruments import timestamper
 
 def usage():
     print '%s send <id> <message_file> <num_vectors>' % sys.argv[0]

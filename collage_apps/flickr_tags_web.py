@@ -15,10 +15,10 @@ from selenium.firefox.webdriver import WebDriver
 
 from collage.messagelayer import MessageLayer
 
-from tasks import WebTagPairFlickrTask
-from vectors import OutguessVector
-from providers import NullVectorProvider, DirectoryVectorProvider
-from instruments import timestamper
+from collage_apps.tasks.flickr import WebTagPairFlickrTask
+from collage_apps.vectors.jpeg import OutguessVector
+from collage_apps.providers.local import NullVectorProvider, DirectoryVectorProvider
+from collage_apps.instruments import timestamper
 
 def main():
     usage = 'usage: %s [options] <send|receive|delete> <id>'
