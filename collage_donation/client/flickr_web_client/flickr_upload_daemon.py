@@ -49,6 +49,8 @@ def main():
         for key in keys:
             data = retrieve(DONATION_SERVER, key)
             if data != '':
+                print 'Uploading %s...' % key
+
                 datafile = tempfile.NamedTemporaryFile(delete=False)
                 datafile.write(data)
                 datafile.close()
@@ -69,7 +71,7 @@ def main():
                     flickr.auth_checkToken()
                     flickr.upload(filename=datafile.name, title=str(row['title']), tags=str(' '.join(tags)))
                 except flickrapi.FlickrError:
-                    pass
+                    print 'Upload %s failed!' % key
 
                 conn.execute('DELETE FROM waiting WHERE rowid = ?', waiting_id)
                 conn.execute('DELETE FROM tags WHERE waiting_id = ?', waiting_id)
