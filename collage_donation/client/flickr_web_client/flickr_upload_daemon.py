@@ -26,7 +26,7 @@ PAUSE_TIME = 3
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='waiting_keys.sqlite3')
+    parser.set_defaults(database='waiting_keys.sqlite')
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
     (options, args) = parser.parse_args()
 
