@@ -20,7 +20,7 @@ from collage_donation.client.rpc import retrieve
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
 
-DONATION_SERVER = 'http://127.0.0.1:8000'
+DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 PAUSE_TIME = 3
 
 def main():

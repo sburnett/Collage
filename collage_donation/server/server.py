@@ -29,7 +29,7 @@ def prep_funcs(db_dir):
     return (donate, retrieve, update_attributes)
 
 def handle_cgi():
-    db_dir = '/tmp/vectors'
+    db_dir = 'vectors'
 
     (donate, retrieve, update_attributes) = prep_funcs(db_dir)
 

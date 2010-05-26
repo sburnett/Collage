@@ -82,7 +82,7 @@
 (new YAHOO.widget.Button({ type: "checkbox", label: "mexico", id: "check81", name: "check81", value: "mexico", container: "tagsbox"})).setStyle("font-size", "18px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "model", id: "check82", name: "check82", value: "model", container: "tagsbox"})).setStyle("font-size", "12px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "mountain", id: "check83", name: "check83", value: "mountain", container: "tagsbox"})).setStyle("font-size", "13px");
-(new YAHOO.widget.Button({ type: "checkbox", label: "mountains", id: "check84", name: "check84", value: "mountains", container: "tagsbox"})).setStyle("font-size", "13px");
+(new YAHOO.widget.Button({ type: "checkbox", label: "mountains", id: "check84", name: "check84", value: "mountains", container: "tagsbox"})).setStyle("font-size", "12px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "museum", id: "check85", name: "check85", value: "museum", container: "tagsbox"})).setStyle("font-size", "16px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "music", id: "check86", name: "check86", value: "music", container: "tagsbox"})).setStyle("font-size", "28px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "nature", id: "check87", name: "check87", value: "nature", container: "tagsbox"})).setStyle("font-size", "31px");
@@ -124,7 +124,7 @@
 (new YAHOO.widget.Button({ type: "checkbox", label: "thailand", id: "check123", name: "check123", value: "thailand", container: "tagsbox"})).setStyle("font-size", "17px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "tokyo", id: "check124", name: "check124", value: "tokyo", container: "tagsbox"})).setStyle("font-size", "19px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "toronto", id: "check125", name: "check125", value: "toronto", container: "tagsbox"})).setStyle("font-size", "13px");
-(new YAHOO.widget.Button({ type: "checkbox", label: "tour", id: "check126", name: "check126", value: "tour", container: "tagsbox"})).setStyle("font-size", "12px");
+(new YAHOO.widget.Button({ type: "checkbox", label: "tour", id: "check126", name: "check126", value: "tour", container: "tagsbox"})).setStyle("font-size", "13px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "travel", id: "check127", name: "check127", value: "travel", container: "tagsbox"})).setStyle("font-size", "32px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "tree", id: "check128", name: "check128", value: "tree", container: "tagsbox"})).setStyle("font-size", "18px");
 (new YAHOO.widget.Button({ type: "checkbox", label: "trees", id: "check129", name: "check129", value: "trees", container: "tagsbox"})).setStyle("font-size", "17px");

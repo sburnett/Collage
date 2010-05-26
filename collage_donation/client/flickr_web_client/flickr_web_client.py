@@ -12,7 +12,7 @@ from optparse import OptionParser
 
 import Image
 
-import collage_donation.client.rpc
+from collage_donation.client.rpc import submit, update_attributes
 
 import pdb
 
@@ -23,7 +23,7 @@ api_secret = '083b2c8757e2971f'
 
 flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
-DONATION_SERVER = 'http://127.0.0.1:8000'
+DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 APPLICATION_NAME = 'proxy'
 def get_latest_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
@@ -143,7 +143,7 @@ def process():
         attributes = map(lambda tag: ('tag', tag), tags)
 
         try:
-            key = rpc.submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
+            key = submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
         except:
             return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
 
@@ -166,7 +166,7 @@ def callback():
 
     print 'Updating: %s, %s' % (userid, token)
 
-    rpc.update_attributes(DONATION_SERVER, 'userid', userid, 'token', token)
+    update_attributes(DONATION_SERVER, 'userid', userid, 'token', token)
 
     bottle.response.set_cookie('token', token, path='/')
     bottle.response.set_cookie('userid', userid, path='/')

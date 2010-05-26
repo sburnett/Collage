@@ -8,7 +8,7 @@ from rpc import retrieve
 def main():
     usage = 'usage: %s [options] <key>'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(url='http://127.0.0.1:8000')
+    parser.set_defaults(url='https://127.0.0.1:8000/server.py')
     parser.add_option('-u', '--url', dest='url', action='store', type='string', help='Server URL')
     (options, args) = parser.parse_args()
 

@@ -1,6 +1,7 @@
 chdir collage_donation/server
 screen ./server.py vectors
 screen ./garbage_collection.py vectors
+screen lighttpd -f lighttpd.conf -D
 chdir ../client/flickr_web_client
 screen ./flickr_web_client.py
 screen ./flickr_upload_daemon.py
