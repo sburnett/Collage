@@ -144,7 +144,7 @@ class OpenFrame(wx.Dialog):
         self.sizer.AddGrowableRow(1)
         self.sizer.AddGrowableCol(0)
 
-        label = wx.StaticText(self, label='Select a circled date from the calendar.')
+        label = wx.StaticText(self, label='Select a date from the calendar.\nNews for dates in bold has already been downloaded.', style=wx.ALIGN_CENTRE)
         self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
 
         self.control = wx.calendar.CalendarCtrl(self)
@@ -189,7 +189,7 @@ class OpenFrame(wx.Dialog):
         current = self.control.PyGetDate()
         for date in self.dates:
             if date.year == current.year and date.month == current.month:
-                avail_style = wx.calendar.CalendarDateAttr(colBorder='#000000', border=wx.calendar.CAL_BORDER_ROUND)
+                avail_style = wx.calendar.CalendarDateAttr(font=wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD))
                 self.control.SetAttr(date.day, avail_style)
 
         self.control.Refresh()
