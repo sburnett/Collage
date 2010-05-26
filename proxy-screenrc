@@ -1,9 +1,9 @@
 chdir collage_donation/server
 screen ./server.py vectors
 screen ./garbage_collection.py vectors
-chdir ../client
+chdir ../client/flickr_web_client
 screen ./flickr_web_client.py
 screen ./flickr_upload_daemon.py
-chdir ../../collage_apps
-screen ./proxy_server.py ../collage_donation/server/vectors --local-dir=/tmp/dummy
+chdir ../../../collage_apps/proxy
+screen ./proxy_server.py ../../collage_donation/server/vectors --local-dir=/tmp/dummy
 caption always "%w"

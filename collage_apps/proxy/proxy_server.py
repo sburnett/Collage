@@ -23,8 +23,8 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
     database = AppDatabase(db_dir, 'proxy')
 
     tasks = []
-    #tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-    #tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
+    tag_pairs = [(a, b) for a in tags for b in tags if a < b]
+    tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
     if local_dir is not None:
         tasks.append(DonateDirectoryTask(local_dir, address, database))
 

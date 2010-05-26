@@ -5,7 +5,7 @@ import hashlib
 
 from collage.messagelayer import Task
 
-from vectors import OutguessVector
+from collage_apps.vectors.jpeg import OutguessVector
 
 class DirectFlickrTask(Task):
     def __init__(self, flickr):

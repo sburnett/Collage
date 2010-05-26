@@ -4,7 +4,7 @@ import base64
 import time
 
 import numpy
-import haslib
+import hashlib
 
 from collage.vectorlayer import Vector, EncodingError
 

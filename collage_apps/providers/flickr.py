@@ -3,7 +3,7 @@ import time
 
 from collage.vectorlayer import VectorProvider
 
-from vectors import DonatedOutguessVector
+from collage_apps.vectors.jpeg import DonatedOutguessVector
 
 class DonatedVectorProvider(VectorProvider):
     def __init__(self, database, killswitch, estimate_db=None):
