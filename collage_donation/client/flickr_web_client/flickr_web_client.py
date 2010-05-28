@@ -6,6 +6,7 @@ import flickrapi
 import urllib
 import re
 import sys
+import os
 import StringIO
 import sqlite3
 from optparse import OptionParser
@@ -16,7 +17,10 @@ from collage_donation.client.rpc import submit, update_attributes
 
 import pdb
 
+script_path = os.path.dirname(sys.argv[0])
+
 bottle.debug(True)
+bottle.TEMPLATE_PATH.append(os.path.join(script_path, 'views'))
 
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
@@ -29,7 +33,8 @@ def get_latest_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
     block = match.group(1)
-    of = open('views/tags.tpl', 'w')
+    print os.path.abspath(os.path.curdir)
+    of = open('tags.tpl', 'w')
     matches = re.finditer(r'<a href=".*?" style="font-size: (?P<size>\d+)px;">(?P<tag>.*?)</a>', block)
     for (idx, match) in enumerate(matches):
         print >>of, '(new YAHOO.widget.Button({ type: "checkbox", label: "%s", id: "check%d", name: "check%d", value: "%s", container: "tagsbox"})).setStyle("font-size", "%spx");' % (match.group('tag'), idx, idx, match.group('tag'), match.group('size'))
@@ -43,7 +48,7 @@ def wait_for_key(key, title, token, tags):
                        (key, title, token))
     rowid = cur.lastrowid
     for tag in tags:
-        conn.execute('INSERT INTO tags (tag, waiting_id) VALUES (?)', (tag, rowid))
+        conn.execute('INSERT INTO tags (tag, waiting_id) VALUES (?, ?)', (tag, rowid))
     conn.commit()
     conn.close()
 
@@ -71,7 +76,7 @@ def index():
 
 @route('/static/:filename#.*#')
 def send_static(filename):
-    return bottle.send_file(filename, 'static')
+    return bottle.send_file(filename, os.path.join(script_path, 'static'))
 
 @route('/login')
 @view('login')
@@ -98,6 +103,9 @@ def process():
     elif 'submit' not in bottle.request.POST:
         bottle.redirect('/upload')
     else:
+        token = bottle.request.COOKIES['token']
+        userid = bottle.request.COOKIES['userid']
+
         response = flickr.people_getInfo(user_id=userid)
         ispro = response.find('person').attrib['ispro'] == '1'
 
@@ -138,16 +146,15 @@ def process():
             expiration = 60*60*int(bottle.request.POST.get('expiration', '').strip())
         except ValueError:
             return bottle.template('upload', error='Please enter a valid number of hours')
-        token = bottle.request.COOKIES['token']
-        userid = bottle.request.COOKIES['userid']
         attributes = map(lambda tag: ('tag', tag), tags)
 
         try:
             key = submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
-        except:
+        except Exception as e:
+            print 'Error: %s' % e
             return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
 
-        wait_for_key(key, title, token, userid)
+        wait_for_key(key, title, token, tags)
 
         return bottle.template('process', expiration=expiration/(60*60))
 

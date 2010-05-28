@@ -5,6 +5,7 @@ import xmlrpclib
 from optparse import OptionParser
 import datetime
 import os
+import os.path
 
 from database import DonaterDatabase
 
@@ -29,7 +30,7 @@ def prep_funcs(db_dir):
     return (donate, retrieve, update_attributes)
 
 def handle_cgi():
-    db_dir = 'vectors'
+    db_dir = '/home/collage/vectors'
 
     (donate, retrieve, update_attributes) = prep_funcs(db_dir)
 

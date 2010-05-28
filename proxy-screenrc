@@ -1,10 +1,7 @@
-chdir collage_donation/server
-screen ./server.py vectors
-screen ./garbage_collection.py vectors
-screen lighttpd -f lighttpd.conf -D
-chdir ../client/flickr_web_client
-screen ./flickr_web_client.py
-screen ./flickr_upload_daemon.py
-chdir ../../../collage_apps/proxy
-screen ./proxy_server.py ../../collage_donation/server/vectors --local-dir=/tmp/dummy
+deflog on
+screen lighttpd -f ${COLLAGE_ROOT}/collage_donation/server/lighttpd.conf -D
+screen python -m collage_donation.server.garbage_collection vectors
+screen python -m collage_donation.client.flickr_web_client.flickr_web_client
+screen python -m collage_donation.client.flickr_web_client.flickr_upload_daemon
+screen python -m collage_apps.proxy.proxy_server vectors --local-dir=/tmp/dummy
 caption always "%w"
