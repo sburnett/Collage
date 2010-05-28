@@ -1,0 +1,13 @@
+General requirements:
+* Python >= 2.5
+* NumPy (http://numpy.scipy.org/, apt-get install python-numpy)
+* PyCrypto (http://www.dlitz.net/software/pycrypto/)
+
+Proxy client installation requirements:
+* wxPython (http://wxpython.org)
+
+Proxy server installation requirements:
+* lighttpd (http://www.lighttpd.net/, apt-get install lighttpd)
+* flickrapi Python package (http://stuvel.eu/projects/flickrapi, apt-get install python-flickrapi)
+* spawn-fcgi (http://redmine.lighttpd.net/projects/spawn-fcgi, apt-get install spawn-fcgi)
+* Python Imaging Library (http://www.pythonware.com/products/pil, apt-get install python-imaging)
