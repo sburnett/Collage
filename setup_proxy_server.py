@@ -1,19 +1,22 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+import ez_setup
+ez_setup.use_setuptools()
 
-setup(name='Collage',
-      version='1.0',
-      description='A censorship-resistent message layer',
-      author='Sam Burnett',
-      url='http://www.gtnoise.net/collage',
-      packages=['collage'
-               ,'collage_donation'
-               ,'collage_apps'
-               ],
-      requires=['pycrypto'
-               ,'numpy'
-               ,'flickrapi'
-               ,'Imaging'
-               ]
-      )
+from setuptools import setup, find_packages
+setup(
+        name='CollageProxyServer',
+        version='1.0',
+        description='A censorship-resistent message layer',
+        author='Sam Burnett',
+        url='http://www.gtnoise.net/collage',
+        packages=['collage'
+                 ,'collage_donation'
+                 ,'collage_apps'
+                 ],
+        install_requires=['pycrypto'
+                         ,'numpy'
+                         ,'flickrapi'
+                         ,'Imaging'
+                         ]
+        )
