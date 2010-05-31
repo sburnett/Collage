@@ -43,17 +43,24 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def get_news(today):
-    pagedata = urllib.urlopen('http://feeds.reuters.com/reuters/topNews?format=xml').read()
-    matches = re.finditer('<link>(?P<link>.*?)</link>', pagedata)
     urls = []
+
+    pagedata = urllib.urlopen('http://news.bbc.co.uk/mobile').read()
+    matches = re.finditer(r'<a class="promoLink" href="(?P<link>.*?)">', pagedata)
+    for match in matches:
+        urls.append(match.group('link'))
+    matches = re.finditer(r'<li class="listTxt">\s*<a href="(?P<link>.*?)">', pagedata)
     for match in matches:
         urls.append(match.group('link'))
 
     stories = []
-    for url in urls[2:]:
-        pagedata = urllib.urlopen(url).read()
+    for url in urls:
+        if url.startswith('http://'):
+            continue
 
-        match = re.search('(?P<title><h1>.*?</h1>).*<span class="focusParagraph">(?P<story>.*?)<div class="relatedTopicButtons">', pagedata, re.I|re.S)
+        pagedata = urllib.urlopen('http://news.bbc.co.uk%s' % url).read()
+
+        match = re.search(r'(?P<title><h1>.*?</h1>).*?<div class="storybody">(?P<story>.*?)</div>', pagedata, re.I|re.S)
         if match is None:
             print "Couldn't parse %s" % url
         else:
