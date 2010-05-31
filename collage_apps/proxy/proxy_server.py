@@ -59,12 +59,15 @@ def get_news(today):
             continue
 
         pagedata = urllib.urlopen('http://news.bbc.co.uk%s' % url).read()
+        pagedata = re.sub(r'<!--.*?-->', '', pagedata)
+        pagedata = re.sub(r'(?ims)<form(>|\s).*?</form>', '', pagedata)
+        pagedata = re.sub(r'\s+', ' ', pagedata)
 
-        match = re.search(r'(?P<title><h1>.*?</h1>).*?<div class="storybody">(?P<story>.*?)</div>', pagedata, re.I|re.S)
+        match = re.search(r'(?P<title><h1>.*?</h1>).*?<div class="storybody">(?P<story>.*?)</div>\s*<div', pagedata, re.I|re.S)
         if match is None:
             print "Couldn't parse %s" % url
         else:
-            stories.append(match.group('title') + match.group('story'))
+            stories.append('<div>' + match.group('title') + match.group('story') + '</div>')
 
     payload = ''.join(stories)
     return payload
