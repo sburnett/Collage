@@ -104,3 +104,5 @@ class DonateTagPairFlickrTask(Task):
     def get_attributes(self):
         return map(lambda t: ('tag', t), self._tags)
 
+    def __str__(self):
+        return "{%s}" % ','.join(self._tags)

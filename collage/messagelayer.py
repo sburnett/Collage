@@ -116,6 +116,9 @@ class MessageLayer(object):
         self._instrument('begin send')
     
         tasks = self._task_database.lookup(identifier)
+        print 'Sending using tasks:'
+        for task in tasks:
+            print task
 
         formatted_data = self._format_message_data(data)
         data_len = len(formatted_data)+1

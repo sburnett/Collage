@@ -5,8 +5,9 @@ Additional requirements that will be downloaded automatically:
 * NumPy (http://numpy.scipy.org/, apt-get install python-numpy)
 * PyCrypto (http://www.dlitz.net/software/pycrypto/)
 
-Proxy client installation requirements, which will
-be downloaded automatically:
+Proxy client installation requirements that you must install
+manually:
+* Selenium, patched to support Collage (http://www.gtnoise.net/collage)
 * wxPython (http://wxpython.org)
 
 Proxy server installation requirements that you must install manually:

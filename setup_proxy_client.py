@@ -19,9 +19,8 @@ setup(
                    ,'collage_apps.proxy.proxy_client'
                    ,'collage_apps.proxy.proxy_common'
                    ,'collage_apps.instruments'
+                   ,'ez_setup'
                    ],
         install_requires=['pycrypto'
-                         ,'numpy'
-                         ,'wxPython'
                          ],
         )
