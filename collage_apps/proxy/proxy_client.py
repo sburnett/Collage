@@ -364,7 +364,7 @@ class Snippet(object):
         return self.module
 
     def execute(self, driver):
-        pkg = __import__('taskmodules', fromlist=[str(self.module)])
+        pkg = __import__('collage_apps.proxy.taskmodules', fromlist=[str(self.module)])
         mod = pkg.__getattribute__(self.module)
         return eval(self.command, mod.__dict__, {'driver': driver})
 
