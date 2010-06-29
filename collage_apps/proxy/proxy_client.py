@@ -219,8 +219,9 @@ class TasksFrame(wx.Dialog):
         self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
 
         modules = []
-        for _, name, _ in pkgutil.iter_modules(['taskmodules']):
-            fh = open(os.path.join('taskmodules', '%s.py' % name), 'r')
+        modules_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'taskmodules')
+        for _, name, _ in pkgutil.iter_modules([modules_dir]):
+            fh = open(os.path.join(modules_dir, '%s.py' % name), 'r')
             try:
                 desc = fh.readline()[1:].strip()
             except:
