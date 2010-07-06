@@ -22,7 +22,7 @@
                     flash_url : "/static/swfupload/swfupload.swf",
                     upload_url: "/upload_file",
                     file_post_name: "vector",
-                    post_params: {"token" : "{{token}}", "userid" : "{{userid}}"},
+                    post_params: {"token" : "$token", "userid" : "$userid"},
                     file_size_limit : "10 MB",
                     file_types : "*.jpeg;*.jpg",
                     file_types_description : "All Files",
@@ -88,11 +88,11 @@
     <body class="yui-skin-sam">
         <h1>Collage Photo Donation</h1>
         <form id="form1" action="/upload" method="POST" enctype="multipart/form-data">
-            %try:
-                <span class="error">{{error}}</span>
-            %except NameError:
-                %pass
-            %end
+            #try
+                <span class="error">$error</span>
+            #except NameError
+                #pass
+            #end try
             <p>Which photo would you like to upload? <!--<input class="box" type="file" name="vector"/>--></p>
 
             <div class="fieldset flash" id="fsUploadProgress">
@@ -108,7 +108,7 @@
             <p>What is the title of your photo? <input class="box" type="text" name="title" size="50"/></p>
             <p>What tags best describe your photo? Click at least three tags on this list:
             <script type="text/javascript">
-            %include tags
+            #include "tags.tpl"
             </script>
             <div id="tagsbox">
             </div>
