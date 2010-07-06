@@ -15,8 +15,6 @@ import Image
 
 from collage_donation.client.rpc import submit, update_attributes
 
-import pdb
-
 script_path = os.path.dirname(sys.argv[0])
 
 bottle.debug(True)

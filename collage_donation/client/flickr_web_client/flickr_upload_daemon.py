@@ -52,7 +52,7 @@ def main():
                 print 'Uploading %s...' % key
 
                 datafile = tempfile.NamedTemporaryFile(delete=False)
-                datafile.write(data)
+                datafile.write(data.data)
                 datafile.close()
 
                 cur = conn.execute('''SELECT rowid,* FROM waiting
