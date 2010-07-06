@@ -181,8 +181,9 @@ class MessageLayer(object):
             # the estimate until we can successfully encode something.
             coded_vector = None
             while lower_bound > 2:
+                current_size = lower_bound
                 try:
-                    (current_len, coded_vector) = encode_vector(lower_bound)
+                    (current_len, coded_vector) = encode_vector(current_size)
                 except vectorlayer.EncodingError:
                     upper_bound = lower_bound
                     lower_bound /= 2
@@ -193,8 +194,9 @@ class MessageLayer(object):
             # (and lower) bounds in ever-increasing increments.
             increment = 1
             while True:
+                current_size = upper_bound
                 try:
-                    (current_len, coded_vector) = encode_vector(upper_bound)
+                    (current_len, coded_vector) = encode_vector(current_size)
                 except vectorlayer.EncodingError:
                     break
                 else:

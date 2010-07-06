@@ -17,6 +17,6 @@ setup(
         install_requires=['pycrypto'
                          ,'numpy'
                          ,'flickrapi'
-                         ,'Imaging'
+#                         ,'Imaging'
                          ]
         )

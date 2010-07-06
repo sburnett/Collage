@@ -12,6 +12,8 @@ import thfcgi
 
 from database import DonaterDatabase
 
+import pdb
+
 def prep_funcs(db_dir):
     def donate(data, application, attributes, expiration=86400):
         db = DonaterDatabase(db_dir)
