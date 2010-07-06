@@ -17,6 +17,8 @@ import flickrapi
 
 from collage_donation.client.rpc import retrieve
 
+import pdb
+
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
 
@@ -51,8 +53,10 @@ def main():
             if data != '':
                 print 'Uploading %s...' % key
 
+                pdb.set_trace()
+
                 datafile = tempfile.NamedTemporaryFile(delete=False)
-                datafile.write(data)
+                datafile.write(data.data)
                 datafile.close()
 
                 cur = conn.execute('''SELECT rowid,* FROM waiting
@@ -62,19 +66,19 @@ def main():
 
                 tags = []
                 for row in conn.execute('SELECT tag FROM tags WHERE waiting_id = ?',
-                                        waiting_id):
+                                        str(waiting_id)):
                     tags.append(row['tag'])
 
-                flickr = flickrapi.FlickrAPI(api_key, api_secret, token=row['token'], store_token=False)
+                flickr = flickrapi.FlickrAPI(api_key, api_secret, token=waiting_row['token'], store_token=False)
                 
                 try:
                     flickr.auth_checkToken()
-                    flickr.upload(filename=datafile.name, title=str(row['title']), tags=str(' '.join(tags)))
+                    flickr.upload(filename=datafile.name, title=str(waiting_row['title']), tags=str(' '.join(tags)))
                 except flickrapi.FlickrError:
                     print 'Upload %s failed!' % key
 
-                conn.execute('DELETE FROM waiting WHERE rowid = ?', waiting_id)
-                conn.execute('DELETE FROM tags WHERE waiting_id = ?', waiting_id)
+                conn.execute('DELETE FROM waiting WHERE rowid = ?', str(waiting_id))
+                conn.execute('DELETE FROM tags WHERE waiting_id = ?', str(waiting_id))
                 conn.commit()
 
                 os.unlink(datafile.name)

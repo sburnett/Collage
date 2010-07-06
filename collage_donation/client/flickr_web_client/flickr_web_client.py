@@ -9,6 +9,7 @@ import sys
 import os
 import StringIO
 import sqlite3
+import tempfile
 from optparse import OptionParser
 
 import Image
@@ -29,6 +30,8 @@ flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 APPLICATION_NAME = 'proxy'
+UPLOADS_DIR = os.path.abspath('uploads')
+
 def get_latest_tags():
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
@@ -94,7 +97,9 @@ def logout():
 def upload():
     if not check_credentials():
         bottle.redirect('/login')
-    return dict()
+    token = bottle.request.COOKIES['token']
+    userid = bottle.request.COOKIES['userid']
+    return {'token': token, 'userid': userid}
 
 @route('/upload', method='POST')
 def process():
@@ -106,34 +111,20 @@ def process():
         token = bottle.request.COOKIES['token']
         userid = bottle.request.COOKIES['userid']
 
-        response = flickr.people_getInfo(user_id=userid)
-        ispro = response.find('person').attrib['ispro'] == '1'
-
         title = bottle.request.POST.get('title', '').strip()
-        uploaded = bottle.request.POST.get('vector')
-        if uploaded == '':
-            return bottle.template('upload', error='You must select a photo to upload')
-
-        data = uploaded.file.read()
-        if ispro:
-            vector = data
-        else:
-            img = Image.open(StringIO.StringIO(data))
-            (width, height) = img.size
-            ratio = min(1024./width, 768./height)
-            if ratio >= 1.0:
-                vector = data
-            else:
-                img = img.resize((int(ratio*width), int(ratio*height)), Image.ANTIALIAS)
-                outfile = StringIO.StringIO()
-                img.save(outfile, 'JPEG')
-                vector = outfile.getvalue()
-                outfile.close()
+        filenames = bottle.request.POST.get('vector_ids').split(';')
+        for filename in filenames:
+            if len(filename) == 0 \
+                    or not os.samefile(UPLOADS_DIR, os.path.dirname(filename)) \
+                    or not os.path.exists(filename):
+                return bottle.template('upload', error='You must select photos to upload',
+                                                 token=token, userid=userid)
 
         try:
             numtags = int(bottle.request.POST.get('numtags', '').strip())
         except ValueError:
-            return bottle.template('upload', error='Inconsistent upload state. Please try again.')
+            return bottle.template('upload', error='Inconsistent upload state. Please try again.',
+                                             token=token, userid=userid)
         numtags = max(numtags, 200)     # Hard clamp on the number of tags, to prevent DoS
         tags = []
         for idx in range(numtags):
@@ -141,22 +132,70 @@ def process():
             if name in bottle.request.POST:
                 tags.append(bottle.request.POST[name])
         if len(tags) < 3:
-            return bottle.template('upload', error='Please select at least 3 tags from the list')
+            return bottle.template('upload', error='Please select at least 3 tags from the list',
+                                             token=token, userid=userid)
         try:
             expiration = 60*60*int(bottle.request.POST.get('expiration', '').strip())
         except ValueError:
-            return bottle.template('upload', error='Please enter a valid number of hours')
+            return bottle.template('upload', error='Please enter a valid number of hours',
+                                             token=token, userid=userid)
         attributes = map(lambda tag: ('tag', tag), tags)
 
-        try:
-            key = submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
-        except Exception as e:
-            print 'Error: %s' % e
-            return bottle.template('upload', error='Cannot contact upload server. Please try again later.')
+        for filename in filenames:
+            try:
+                vector = open(filename, 'rb').read()
+                os.unlink(filename)
+                key = submit(DONATION_SERVER, vector, APPLICATION_NAME, attributes, expiration)
+            except Exception as e:
+                print 'Error: %s' % e
+                return bottle.template('upload', error='Cannot contact upload server. Please try again later.',
+                                                 token=token, userid=userid)
 
-        wait_for_key(key, title, token, tags)
+            wait_for_key(key, title, token, tags)
 
         return bottle.template('process', expiration=expiration/(60*60))
+
+@route('/upload_file', method='POST')
+def upload_file():
+    token = bottle.request.POST.get('token')
+    userid = bottle.request.POST.get('userid')
+    uploaded = bottle.request.POST.get('vector')
+    data = uploaded.file.read()
+
+    if not token or not userid:
+        bottle.redirect('/login')
+        return
+
+    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    try:
+        response = f.auth_checkToken()
+    except flickrapi.FlickrError:
+        bottle.redirect('/login')
+        return
+
+    response = flickr.people_getInfo(user_id=userid)
+    ispro = response.find('person').attrib['ispro'] == '1'
+
+    if ispro:
+        vector = data
+    else:
+        img = Image.open(StringIO.StringIO(data))
+        (width, height) = img.size
+        ratio = min(1024./width, 768./height)
+        if ratio >= 1.0:
+            vector = data
+        else:
+            img = img.resize((int(ratio*width), int(ratio*height)), Image.ANTIALIAS)
+            outfile = StringIO.StringIO()
+            img.save(outfile, 'JPEG')
+            vector = outfile.getvalue()
+            outfile.close()
+
+    outf = tempfile.NamedTemporaryFile(suffix='.jpg', prefix='upload', dir=UPLOADS_DIR, delete=False)
+    outf.write(vector)
+    outf.close()
+
+    return outf.name
 
 @route('/callback')
 def callback():
@@ -193,7 +232,8 @@ def main():
         parser.error('Invalid argument')
 
     get_latest_tags()
-    bottle.run(host='localhost', port=8080, reloader=True)
+    #bottle.run(host='localhost', port=8080, reloader=True)
+    bottle.run(server=bottle.CherryPyServer, reloader=True)
 
 if __name__ == '__main__':
     main()
