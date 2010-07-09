@@ -22,7 +22,7 @@
                     flash_url : "/static/swfupload/swfupload.swf",
                     upload_url: "/upload_file",
                     file_post_name: "vector",
-                    post_params: {"token" : "$token", "userid" : "$userid"},
+                    post_params: {"token" : "{{token}}", "userid" : "{{userid}}"},
                     file_size_limit : "10 MB",
                     file_types : "*.jpeg;*.jpg",
                     file_types_description : "All Files",
@@ -88,11 +88,9 @@
     <body class="yui-skin-sam">
         <h1>Collage Photo Donation</h1>
         <form id="form1" action="/upload" method="POST" enctype="multipart/form-data">
-            #try
-                <span class="error">$error</span>
-            #except NotFound
-                #pass
-            #end try
+            {% if error %}
+                <span class="error">{{error}}</span>
+            {% endif %}
             <p>Which photo would you like to upload? <!--<input class="box" type="file" name="vector"/>--></p>
 
             <div class="fieldset flash" id="fsUploadProgress">
@@ -108,7 +106,7 @@
             <p>What is the title of your photo? <input class="box" type="text" name="title" size="50"/></p>
             <p>What tags best describe your photo? Click at least three tags on this list:
             <script type="text/javascript">
-            #include "tags.tpl"
+            {% include "tags.tpl" %}
             </script>
             <div id="tagsbox">
             </div>
@@ -118,8 +116,8 @@
 
         <form action="/upload_file" method="POST" enctype="multipart/form-data">
             <input type="file" name="vector"/>
-            <input type="hidden" name="userid" value="$userid"/>
-            <input type="hidden" name="token" value="$token"/>
+            <input type="hidden" name="userid" value="{{userid}}"/>
+            <input type="hidden" name="token" value="{{token}}"/>
             <input type="submit" value="Submit"/>
         </form>
 
