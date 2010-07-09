@@ -146,8 +146,10 @@ class FlickrWebClient:
         return str(template)
 
     @cherrypy.expose
-    def upload_file(self, token=None, userid=None, vector=None):
-        if token is None or userid is None or vector is None:
+    def upload_file(self, vector=None, token=None, userid=None):
+        pdb.set_trace()
+
+        if vector is None or token is None or userid is None:
             raise cherrypy.HTTPError(403)
 
         f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
@@ -159,7 +161,7 @@ class FlickrWebClient:
         response = flickr.people_getInfo(user_id=userid)
         ispro = response.find('person').attrib['ispro'] == '1'
 
-        data = vector.read()
+        data = vector.file.read()
 
         if ispro:
             vector = data

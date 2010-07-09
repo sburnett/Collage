@@ -115,6 +115,14 @@
             <p>How many hours may we hold your photo before uploading it to Flickr? Longer values increase our ability to store censored content.<input class="box" type="text" name="expiration" size="1" value="12"/> hours</p>
             <input type="submit" name="submit" value="Upload photo"/>
         </form>
+
+        <form action="/upload_file" method="POST" enctype="multipart/form-data">
+            <input type="file" name="vector"/>
+            <input type="hidden" name="userid" value="$userid"/>
+            <input type="hidden" name="token" value="$token"/>
+            <input type="submit" value="Submit"/>
+        </form>
+
         <a href="/logout">Logout</a>
     </body>
 </html>
