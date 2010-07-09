@@ -16,9 +16,11 @@ import Image
 
 from collage_donation.client.rpc import submit, update_attributes
 
+import pdb
+
 script_path = os.path.dirname(sys.argv[0])
 def template_path(name):
-    return os.path.join(script_path, 'views')
+    return os.path.join(script_path, 'views', '%s.tpl' % name)
 
 api_key = 'ebc4519ce69a3485469c4509e8038f9f'
 api_secret = '083b2c8757e2971f'
@@ -27,7 +29,7 @@ flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 APPLICATION_NAME = 'proxy'
-CONFIG_PATH = 'webclient.conf'
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 UPLOADS_DIR = os.path.abspath('uploads')
 
 def get_latest_tags():
@@ -188,7 +190,7 @@ class FlickrWebClient:
         try:
             response = f.auth_checkToken()
         except flickrapi.FlickrError:
-            raise HTTPRedirect('/login')
+            raise cherrypy.HTTPRedirect('/login')
 
         userid = response.find('auth').find('user').attrib['nsid']
 
@@ -198,7 +200,7 @@ class FlickrWebClient:
 
         cherrypy.session['token'] = token
         cherrypy.session['userid'] = userid
-        raise HTTPRedirect('/')
+        raise cherrypy.HTTPRedirect('/')
 
 def main():
     usage = 'usage: %s [options]'
@@ -215,7 +217,12 @@ def main():
 
     get_latest_tags()
     
-    cherrypy.quickstart(FlickrWebClient(), config=CONFIG_PATH)
+    cherrypy.config.update({'tools.sessions.on': True})
+    config = { '/static':
+                    { 'tools.staticdir.on' : True,
+                      'tools.staticdir.dir': STATIC_DIR }
+             }
+    cherrypy.quickstart(FlickrWebClient(), config=config)
 
 if __name__ == '__main__':
     main()

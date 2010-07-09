@@ -90,7 +90,7 @@
         <form id="form1" action="/upload" method="POST" enctype="multipart/form-data">
             #try
                 <span class="error">$error</span>
-            #except NameError
+            #except NotFound
                 #pass
             #end try
             <p>Which photo would you like to upload? <!--<input class="box" type="file" name="vector"/>--></p>
