@@ -12,7 +12,6 @@
 
         <script type="text/javascript" src="/static/swfupload/swfupload.js"></script>
         <script type="text/javascript" src="/static/swfupload.queue.js"></script>
-        <!--<script type="text/javascript" src="/static/fileprogress.js"></script>-->
         <script type="text/javascript" src="/static/handlers.js"></script>
         <script type="text/javascript">
             var swfu;
@@ -63,10 +62,12 @@
                 swfu = new SWFUpload(settings);
 
                 val = document.getElementById("vector_ids").value;
-                filenames = val.split(";");
-                for(var i = 0; i < filenames.length; i++) {
-                    url = "/thumbnail?filename=" + escape(filenames[i]);
-                    addImage(url, filenames[i]);
+                if(val.length > 0) {
+                    filenames = val.split(";");
+                    for(var i = 0; i < filenames.length; i++) {
+                        url = "/thumbnail?filename=" + escape(filenames[i]);
+                        addImage(url, filenames[i]);
+                    }
                 }
              };
         </script>
@@ -126,9 +127,9 @@
             <div id="thumbnails" style="margin-bottom: 20px">
             </div>
 
-            <p><b>Step 2:</b> What is a title for your photos? <input class="box" type="text" name="title" size="50"/></p>
+            <p><b>Step 2:</b> What is a title for your photos? <input class="box" type="text" name="title" size="50" value="{{title|default:""}}"/></p>
             <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr?</p>
-            <p><input class="box" type="text" name="expiration" size="1" value="12"/> hours</br></p>
+            <p><input class="box" type="text" name="expiration" size="1" value="{{expiration|default:"12"}}"/> hours</br></p>
             <p><b>Step 4:</b> What tags best describe your photo? Click <i>at least three</i> tags on this list:
             <script type="text/javascript">
             {% include "tags.tpl" %}

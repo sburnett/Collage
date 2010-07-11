@@ -31,18 +31,6 @@ DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 APPLICATION_NAME = 'proxy'
 UPLOADS_DIR = os.path.abspath('uploads')
 
-def get_latest_tags():
-    pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
-    match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
-    block = match.group(1)
-    print os.path.abspath(os.path.curdir)
-    of = open('tags.tpl', 'w')
-    matches = re.finditer(r'<a href=".*?" style="font-size: (?P<size>\d+)px;">(?P<tag>.*?)</a>', block)
-    for (idx, match) in enumerate(matches):
-        print >>of, '(new YAHOO.widget.Button({ type: "checkbox", label: "%s", id: "check%d", name: "check%d", value: "%s", container: "tagsbox"})).setStyle("font-size", "%spx");' % (match.group('tag'), idx, idx, match.group('tag'), match.group('size'))
-    print >>of, 'document.write("<input type=\'hidden\' name=\'numtags\' value=\'%d\'/>");' % (idx+1)
-    of.close()
-
 def check_credentials(request):
     if 'token' not in request.session or \
             'userid' not in request.session:
@@ -104,6 +92,8 @@ def upload(request):
     args = {'token': request.session['token'],
             'userid': request.session['userid'],
             'vector_ids': vector_ids,
+            'title': request.REQUEST.get('title'),
+            'expiration': request.REQUEST.get('expiration'),
             'vectors': vectors}
 
     submit_button = request.REQUEST.get('submit')
@@ -116,7 +106,15 @@ def upload(request):
     numtags = request.REQUEST.get('numtags')
     expiration = request.REQUEST.get('expiration')
 
-    if title is None:
+    try:
+        for idx in range(max(int(numtags), 200)):
+            name = 'check%d' % idx
+            if name in request.REQUEST:
+                args[name] = ", checked: true"
+    except ValueError:
+        pass
+
+    if title is None or len(title) == 0:
         args['error'] = 'You must enter a title'
         return render_to_response('upload.tpl', args)
 
@@ -127,7 +125,7 @@ def upload(request):
     if vector_ids is None or numtags is None:
         args['error'] = 'Form error'
         return render_to_response('upload.tpl', args)
-    
+
     title = title.strip()
     filenames = vector_ids.split(';')
     for filename in filenames:
