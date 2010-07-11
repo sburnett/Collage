@@ -20,4 +20,5 @@ urlpatterns = patterns('',
         (r'^upload_file$', views.upload_file),
         (r'^callback$', views.callback),
         (r'^thumbnail$', views.thumbnail),
+        (r'^thumbnail_cancel$', views.thumbnail_cancel),
 )

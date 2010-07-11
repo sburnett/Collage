@@ -74,7 +74,7 @@
 
         <style>
             #tagsbox {
-                width: 75%;
+                width: 100%;
                 border: 1px solid black;
                 padding: 5px;
                 margin-top: 5px;
@@ -118,7 +118,7 @@
             {% if error %}
                 <span class="error">{{error}}</span>
             {% endif %}
-            <p><b>Step 1:</b> What photos would you like to donate?</p>
+            <p><b>Step 1:</b> What photos would you like to donate? <small>(<a href="/static/faq.html#uploads" target="_blank">what's this?</a>)</small></p>
             <input type="hidden" name="vector_ids" id="vector_ids" value="{% if vector_ids %}{{vector_ids}}{% endif %}"/>
             <div style="display: inline; border: solid 1px #7FAAFF; background-color: #C5D9FF; padding: 2px;">
                 <span id="spanButtonPlaceHolder"></span>
@@ -127,16 +127,16 @@
             <div id="thumbnails" style="margin-bottom: 20px">
             </div>
 
-            <p><b>Step 2:</b> What is a title for your photos? <input class="box" type="text" name="title" size="50" value="{{title|default:""}}"/></p>
-            <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr?</p>
-            <p><input class="box" type="text" name="expiration" size="1" value="{{expiration|default:"12"}}"/> hours</br></p>
-            <p><b>Step 4:</b> What tags best describe your photo? Click <i>at least three</i> tags on this list:
+            <p><b>Step 2:</b> What is a title for these photos? <input class="box" type="text" name="title" size="50" value="{{title|default:""}}"/></p>
+            <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr? <input class="box" type="text" name="expiration" size="1" value="{{expiration|default:"12"}}"/> hours. <small>(<a href="/static/faq.html#expiration" target="_blank">what's this?</a>)</small></br></p>
+            <p><b>Step 4:</b> What tags best describe your photos? Click <i>at least three</i> tags on this list: <small>(<a href="/static/faq.html#tags" target="_blank">what's this?</a>)</small>
             <script type="text/javascript">
             {% include "tags.tpl" %}
             </script>
             <div id="tagsbox">
             </div>
-            <input type="submit" name="submit" value="Upload photo"/>
+            <p><b>Step 5:</b> Donate your photos by clicking the button below.</p>
+            <input type="submit" name="submit" value="Donate photos"/>
         </form>
 
         <a href="/logout">Logout</a>

@@ -200,16 +200,44 @@ function queueComplete(numFilesUploaded) {
 
 function cancelFromThumb(cancelEl) {
     var spanEl = cancelEl.parentNode;
+
+    makeRequest("/thumbnail_cancel?filename=" + escape(spanEl.getAttribute("filename")));
+
     var parEl = spanEl.parentNode;
     parEl.removeChild(spanEl);
     updateVectorIds();
 }
 
+function makeRequest(url) {
+    var http_request = false;
+    if (window.XMLHttpRequest) { // Mozilla, Safari,...
+        http_request = new XMLHttpRequest();
+        if (http_request.overrideMimeType) {
+            http_request.overrideMimeType('text/xml');
+        }
+    } else if (window.ActiveXObject) { // IE
+        try {
+            http_request = new ActiveXObject("Msxml2.XMLHTTP");
+        } catch (e) {
+            try {
+                http_request = new ActiveXObject("Microsoft.XMLHTTP");
+            } catch (e) {}
+        }
+    }
+    if (!http_request) {
+        return false;
+    }
+
+//    http_request.onreadystatechange = alertContents;
+    http_request.open('GET', url, true);
+    http_request.send(null);
+}
+
 function updateVectorIds() {
-    var imgs = document.getElementsByName("thumbnail");
+    var spans = document.getElementsByName("thumbnail");
     var filenames = new Array();
-    for(var i = 0; i < imgs.length; i++) {
-        filenames.push(imgs[i].getAttribute("filename"));
+    for(var i = 0; i < spans.length; i++) {
+        filenames.push(spans[i].getAttribute("filename"));
     }
     document.getElementById("vector_ids").value = filenames.join(";");
 }
@@ -217,8 +245,6 @@ function updateVectorIds() {
 function addImage(src, filename) {
 	var newImg = document.createElement("img");
 	newImg.style.margin = "5px";
-    newImg.setAttribute("name", "thumbnail");
-    newImg.setAttribute("filename", filename);
 
     var thumbCancel = document.createElement("a");
     thumbCancel.className = "thumbCancel";
@@ -228,6 +254,8 @@ function addImage(src, filename) {
 
     var newSpan = document.createElement("span");
     newSpan.style.position = "relative";
+    newSpan.setAttribute("name", "thumbnail");
+    newSpan.setAttribute("filename", filename);
     newSpan.appendChild(newImg);
     newSpan.appendChild(thumbCancel);
 	document.getElementById("thumbnails").appendChild(newSpan);

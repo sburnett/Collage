@@ -73,9 +73,10 @@ def logout(request):
     return HttpResponseRedirect('/')
 
 def is_valid_filename(filename):
-    return len(filename) > 0 \
+    return filename is not None \
+            and len(filename) > 0 \
             and os.path.exists(filename) \
-            and os.path.samefile(UPLOADS_DIR, os.path.dirname(filename))
+            and os.path.samefile(UPLOADS_DIR, os.path.dirname(os.path.abspath(filename)))
 
 def upload(request):
     if not check_credentials(request):
@@ -149,12 +150,17 @@ def upload(request):
         args['error'] = 'Please select at least 3 tags from the list'
         return render_to_response('upload.tpl', args)
 
+    attributes = map(lambda tag: ('tag', tag), tags)
+
     try:
         expiration = 60*60*int(expiration.strip())
     except ValueError:
         args['error'] = 'Please enter a valid number of hours'
         return render_to_response('upload.tpl', args)
-    attributes = map(lambda tag: ('tag', tag), tags)
+
+    if expiration > 24 or expiration < 0:
+        args['error'] = 'Expiration can be at most 24 hours'
+        return render_to_response('upload.tpl', args)
 
     for filename in filenames:
         try:
@@ -211,8 +217,11 @@ def upload_file(request):
     return HttpResponse(outf.name)
 
 def thumbnail(request):
+    if not check_credentials(request):
+        return HttpResponseBadRequest()
+
     filename = request.REQUEST.get('filename')
-    if filename is None or not is_valid_filename(filename):
+    if not is_valid_filename(filename):
         return HttpResponseBadRequest()
 
     img = Image.open(filename)
@@ -220,6 +229,16 @@ def thumbnail(request):
     outfile = StringIO.StringIO()
     img.save(outfile, 'JPEG')
     return HttpResponse(outfile.getvalue(), 'image/png')
+
+def thumbnail_cancel(request):
+    if not check_credentials(request):
+        return HttpResponseBadRequest()
+
+    filename = request.REQUEST.get('filename')
+    if not is_valid_filename(filename):
+        return HttpResponseBadRequest()
+
+    os.unlink(filename)
 
 def callback(request):
     frob = request.REQUEST.get('frob')

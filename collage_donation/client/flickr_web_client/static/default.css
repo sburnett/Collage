@@ -1,3 +1,7 @@
+body {
+    width: 60%;
+    align: left;
+}
 div.fieldset {
 	border:  1px solid #afe14c;
 	margin: 10px 0;
