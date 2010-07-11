@@ -42,5 +42,9 @@
         behalf.</p>
 
         <input type="button" value="Log in" onclick="window.open('{{login_url}}', '_self');"/>
+
+        <h2>I have more questions!</h2>
+
+        Please see our <a href="/static/faq.html">FAQ</a>.
     </body>
 </html>
