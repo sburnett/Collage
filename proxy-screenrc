@@ -2,7 +2,7 @@ deflog on
 screen spawn-fcgi -s serv_misc/python-fastcgi.socket -n -- ${COLLAGE_ROOT}/collage_donation/server/server.py vectors
 screen lighttpd -f ${COLLAGE_ROOT}/collage_donation/server/lighttpd.conf -D
 screen python -m collage_donation.server.garbage_collection vectors
-screen python -m collage_donation.client.flickr_web_client.flickr_web_client
+screen django-admin runserver --settings=collage_donation.client.flickr_web_client.settings 8080
 screen python -m collage_donation.client.flickr_web_client.flickr_upload_daemon
 screen python -m collage_apps.proxy.proxy_server vectors --local-dir=/tmp/dummy
 caption always "%w"

@@ -12,7 +12,7 @@
 
         <script type="text/javascript" src="/static/swfupload/swfupload.js"></script>
         <script type="text/javascript" src="/static/swfupload.queue.js"></script>
-        <script type="text/javascript" src="/static/fileprogress.js"></script>
+        <!--<script type="text/javascript" src="/static/fileprogress.js"></script>-->
         <script type="text/javascript" src="/static/handlers.js"></script>
         <script type="text/javascript">
             var swfu;
@@ -29,20 +29,24 @@
                     file_upload_limit : 100,
                     file_queue_limit : 0,
                     custom_settings : {
+                        upload_target : "divFileProgressContainer",
                         progressTarget : "fsUploadProgress",
                         cancelButtonId : "btnCancel"
                     },
                     debug: false,
 
                     // Button settings
-                    button_image_url: "/static/images/TestImageNoText_65x29.png",
-                    button_width: "65",
-                    button_height: "29",
+				    button_image_url : "/static/images/SmallSpyGlassWithTransperancy_17x18.png",
+                    button_width: "250",
+                    button_height: "18",
                     button_placeholder_id: "spanButtonPlaceHolder",
-                    button_text: '<span class="theFont">Upload</span>',
-                    button_text_style: ".theFont { font-size: 16; }",
-                    button_text_left_padding: 12,
-                    button_text_top_padding: 3,
+                    button_text : '<span class="button">Select images to upload<span class="buttonSmall">(10 MB Max)</span></span>',
+                    button_text_style : '.button { font-family: Helvetica, Arial, sans-serif; font-size: 12pt; } .buttonSmall { font-size: 10pt; }',
+                    button_text_top_padding: 0,
+                    button_text_left_padding: 18,
+                    button_window_mode: SWFUpload.WINDOW_MODE.TRANSPARENT,
+                    button_cursor: SWFUpload.CURSOR.HAND,
+
                     
                     // The event handler functions are defined in handlers.js
                     file_queued_handler : fileQueued,
@@ -57,6 +61,13 @@
                 };
 
                 swfu = new SWFUpload(settings);
+
+                val = document.getElementById("vector_ids").value;
+                filenames = val.split(";");
+                for(var i = 0; i < filenames.length; i++) {
+                    url = "/thumbnail?filename=" + escape(filenames[i]);
+                    addImage(url, filenames[i]);
+                }
              };
         </script>
 
@@ -82,6 +93,21 @@
                 font-size: 1.3em;
                 font-weight: bold;
             }
+            a.thumbCancel {
+                font-size: 0;
+                display: block;
+                height: 14px;
+                width: 14px;
+                background-image: url(/static/images/cancelbutton.gif);
+                background-repeat: no-repeat;
+                background-position: -14px 0px;
+                position: absolute;
+                left: 0px;
+                top: 0px;
+            }
+            a.thumbCancel:hover {
+                background-position: 0px 0px;
+            }
         </style>
     </head>
 
@@ -91,34 +117,25 @@
             {% if error %}
                 <span class="error">{{error}}</span>
             {% endif %}
-            <p>Which photo would you like to upload? <!--<input class="box" type="file" name="vector"/>--></p>
-
-            <div class="fieldset flash" id="fsUploadProgress">
-            <input type="hidden" name="vector_ids" id="vector_ids" value=""/>
-            <span class="legend">Upload Queue</span>
-            </div>
-            <div id="divStatus">0 Files Uploaded</div>
-            <div>
+            <p><b>Step 1:</b> What photos would you like to donate?</p>
+            <input type="hidden" name="vector_ids" id="vector_ids" value="{% if vector_ids %}{{vector_ids}}{% endif %}"/>
+            <div style="display: inline; border: solid 1px #7FAAFF; background-color: #C5D9FF; padding: 2px;">
                 <span id="spanButtonPlaceHolder"></span>
-                <input id="btnCancel" type="button" value="Cancel All Uploads" onclick="swfu.cancelQueue();" disabled="disabled" style="margin-left: 2px; font-size 8pt; height: 29px;"/>
+            </div>
+            <div id="divFileProgressContainer" style="height: 75px;"></div>
+            <div id="thumbnails" style="margin-bottom: 20px">
             </div>
 
-            <p>What is the title of your photo? <input class="box" type="text" name="title" size="50"/></p>
-            <p>What tags best describe your photo? Click at least three tags on this list:
+            <p><b>Step 2:</b> What is a title for your photos? <input class="box" type="text" name="title" size="50"/></p>
+            <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr?</p>
+            <p><input class="box" type="text" name="expiration" size="1" value="12"/> hours</br></p>
+            <p><b>Step 4:</b> What tags best describe your photo? Click <i>at least three</i> tags on this list:
             <script type="text/javascript">
             {% include "tags.tpl" %}
             </script>
             <div id="tagsbox">
             </div>
-            <p>How many hours may we hold your photo before uploading it to Flickr? Longer values increase our ability to store censored content.<input class="box" type="text" name="expiration" size="1" value="12"/> hours</p>
             <input type="submit" name="submit" value="Upload photo"/>
-        </form>
-
-        <form action="/upload_file" method="POST" enctype="multipart/form-data">
-            <input type="file" name="vector"/>
-            <input type="hidden" name="userid" value="{{userid}}"/>
-            <input type="hidden" name="token" value="{{token}}"/>
-            <input type="submit" value="Submit"/>
         </form>
 
         <a href="/logout">Logout</a>

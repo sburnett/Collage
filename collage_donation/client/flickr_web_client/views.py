@@ -10,6 +10,7 @@ from optparse import OptionParser
 
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.shortcuts import render_to_response
+from django.conf import settings
 
 import Image
 
@@ -57,7 +58,7 @@ def check_credentials(request):
     return True
 
 def wait_for_key(key, title, token, tags):
-    conn = sqlite3.connect(wait_db)
+    conn = sqlite3.connect(settings.WAITING_DB)
     cur = conn.execute('''INSERT INTO waiting (key, title, token)
                                        VALUES (?, ?, ?)''',
                        (key, title, token))
@@ -83,23 +84,54 @@ def logout(request):
         del request.session['userid']
     return HttpResponseRedirect('/')
 
+def is_valid_filename(filename):
+    return len(filename) > 0 \
+            and os.path.exists(filename) \
+            and os.path.samefile(UPLOADS_DIR, os.path.dirname(filename))
+
 def upload(request):
     if not check_credentials(request):
         return HttpResponseRedirect('/login')
 
-    args = {'token': request.session['token'],
-            'userid': request.session['userid']}
+    print 'Vector ids: %s' % request.REQUEST.get('vector_ids')
 
-    if submit is None:
+    vector_ids = request.REQUEST.get('vector_ids')
+    if vector_ids:
+        vectors = vector_ids.split(';')
+    else:
+        vectors = None
+
+    args = {'token': request.session['token'],
+            'userid': request.session['userid'],
+            'vector_ids': vector_ids,
+            'vectors': vectors}
+
+    submit_button = request.REQUEST.get('submit')
+
+    if submit_button is None:
+        return render_to_response('upload.tpl', args)
+
+    title = request.REQUEST.get('title')
+    vector_ids = request.REQUEST.get('vector_ids')
+    numtags = request.REQUEST.get('numtags')
+    expiration = request.REQUEST.get('expiration')
+
+    if title is None:
+        args['error'] = 'You must enter a title'
+        return render_to_response('upload.tpl', args)
+
+    if expiration is None:
+        args['expiration'] = 'You must specify an expiration time'
+        return render_to_response('upload.tpl', args)
+
+    if vector_ids is None or numtags is None:
+        args['error'] = 'Form error'
         return render_to_response('upload.tpl', args)
     
     title = title.strip()
     filenames = vector_ids.split(';')
     for filename in filenames:
-        if len(filename) == 0 \
-                or not os.samefile(UPLOADS_DIR, os.path.dirname(filename)) \
-                or not os.path.exists(filename):
-
+        if not is_valid_filename(filename):
             args['error'] = 'You must select photos to upload'
             return render_to_response('upload.tpl', args)
 
@@ -113,14 +145,14 @@ def upload(request):
     tags = []
     for idx in range(numtags):
         name = 'check%d' % idx
-        if name in kwargs:
-            tags.append(kwargs[name])
+        if name in request.REQUEST:
+            tags.append(request.REQUEST[name])
     if len(tags) < 3:
         args['error'] = 'Please select at least 3 tags from the list'
         return render_to_response('upload.tpl', args)
 
     try:
-        expiration = 60*60*int(expiration).strip()
+        expiration = 60*60*int(expiration.strip())
     except ValueError:
         args['error'] = 'Please enter a valid number of hours'
         return render_to_response('upload.tpl', args)
@@ -135,7 +167,7 @@ def upload(request):
             args['error'] = 'Cannot contact upload server. Please try again later.'
             return render_to_response('upload.tpl', args)
 
-        wait_for_key(key, title, token, tags)
+        wait_for_key(key, title, request.session['token'], tags)
 
     args['expiration'] = expiration/(60*60)
     return render_to_response('process.tpl', args)
@@ -180,8 +212,19 @@ def upload_file(request):
 
     return HttpResponse(outf.name)
 
+def thumbnail(request):
+    filename = request.REQUEST.get('filename')
+    if filename is None or not is_valid_filename(filename):
+        return HttpResponseBadRequest()
+
+    img = Image.open(filename)
+    img.thumbnail((128, 128))
+    outfile = StringIO.StringIO()
+    img.save(outfile, 'JPEG')
+    return HttpResponse(outfile.getvalue(), 'image/png')
+
 def callback(request):
-    frob = request.REQUEST.get(frob)
+    frob = request.REQUEST.get('frob')
     if not frob:
         return HttpResponseBadRequest()
 
