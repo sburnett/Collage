@@ -14,6 +14,7 @@ manually:
 * wxPython (http://wxpython.org)
 
 Proxy server installation requirements that you must install manually:
+* tmux (http://tmux.sf.net, apt-get install tmux)
 * lighttpd (http://www.lighttpd.net/, apt-get install lighttpd)
 * spawn-fcgi (http://redmine.lighttpd.net/projects/spawn-fcgi, apt-get install spawn-fcgi)
 * django (http://djangoproject.com, apt-get install python-django)
