@@ -45,7 +45,7 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
 def get_news(today):
     urls = []
 
-    pagedata = urllib.urlopen('http://news.bbc.co.uk/mobile').read()
+    pagedata = urllib.urlopen('http://www.bbc.co.uk/news/mobile').read()
     matches = re.finditer(r'<a class="promoLink" href="(?P<link>.*?)">', pagedata)
     for match in matches:
         urls.append(match.group('link'))
@@ -58,7 +58,7 @@ def get_news(today):
         if url.startswith('http://'):
             continue
 
-        pagedata = urllib.urlopen('http://news.bbc.co.uk%s' % url).read()
+        pagedata = urllib.urlopen('http://www.bbc.co.uk%s' % url).read()
         pagedata = re.sub(r'<!--.*?-->', '', pagedata)
         pagedata = re.sub(r'(?ims)<form(>|\s).*?</form>', '', pagedata)
         pagedata = re.sub(r'\s+', ' ', pagedata)

@@ -16,6 +16,8 @@ COLLAGE_ROOT=/home/sburnett/git/collage
 # the screen session as the Collage user.
 cmd="cd $COLLAGE_HOME;
 export COLLAGE_ROOT=$COLLAGE_ROOT
+export COLLAGE_USER=$COLLAGE_USER
+export COLLAGE_HOME=$COLLAGE_HOME
 PYTHONPATH=$COLLAGE_ROOT;
 screen -c $COLLAGE_ROOT/proxy-screenrc"
 sudo -u $COLLAGE_USER -s -- script -q -c \"bash -c \\\"$cmd\\\"\" /dev/null
