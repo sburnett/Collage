@@ -1,3 +1,6 @@
+Requirements
+============
+
 General requirements:
 * Python >= 2.5
 
@@ -16,3 +19,15 @@ Proxy server installation requirements that you must install manually:
 * django (http://djangoproject.com, apt-get install python-django)
 * flickrapi Python package (http://stuvel.eu/projects/flickrapi, apt-get install python-flickrapi)
 * Python Imaging Library (http://www.pythonware.com/products/pil, apt-get install python-imaging)
+
+Server setup
+============
+
+1. Create a new user called "collage"
+2. Update the environement variables in run-proxy-server.sh to reflect the new user
+3. Create directories called serv_misc, uploads and vectors in ~collage/
+4. Generate a new SSL certificate in ~collage/serv_misc:
+    
+    openssl req -new -x509 -keyout server.pem -out ~collage/serv_misc/server.pem -days 365 -nodes
+    chown collage.collage ~collage/serv_misc/server.pem
+    chmod 600 ~collage/serv_misc/server.pem
