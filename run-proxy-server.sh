@@ -28,4 +28,4 @@ tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.c
 tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags 2>&1 | tee get_latest_tags.log';
 tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors --local-dir=/tmp/dummy | tee proxy_server.log';
 tmux attach-session -t collage;"
-sudo -u $COLLAGE_USER -s -- bash -c \"$cmd\"
+sudo -u $COLLAGE_USER -s -- bash -c "$cmd"
