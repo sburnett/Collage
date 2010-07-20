@@ -12,6 +12,7 @@ Proxy client installation requirements:
 
 Proxy server installation requirements:
 * tmux (http://tmux.sf.net, apt-get install tmux)
+* sudo (apt-get install sudo)
 * lighttpd (http://www.lighttpd.net, apt-get install lighttpd)
 * spawn-fcgi (http://redmine.lighttpd.net/projects/spawn-fcgi, apt-get install spawn-fcgi)
 * flup (http://trac.saddi.com/flup, apt-get install python-flup)
