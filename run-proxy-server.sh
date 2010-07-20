@@ -16,7 +16,6 @@ COLLAGE_ROOT=$HOME/git/collage
 # the screen session as the Collage user.
 cmd="cd $COLLAGE_HOME;
 export COLLAGE_USER=$COLLAGE_USER;
-export COLLAGE_HOME=$COLLAGE_HOME;
 export COLLAGE_ROOT=$COLLAGE_ROOT;
 export PYTHONPATH=$COLLAGE_ROOT;
 tmux new-session -s collage -d -n donation_server \"spawn-fcgi -s serv_misc/python-fastcgi.socket -n -- ${COLLAGE_ROOT}/collage_donation/server/server.py vectors 2>&1 | tee donation_server.log\";
