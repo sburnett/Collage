@@ -30,3 +30,5 @@ Server setup
     openssl req -new -x509 -keyout server.pem -out ~collage/serv_misc/server.pem -days 365 -nodes
     chown collage.collage ~collage/serv_misc/server.pem
     chmod 600 ~collage/serv_misc/server.pem
+
+5. Run "run-proxy-server.sh". This will start a new tmux instance with all server infrastructure running inside it.
