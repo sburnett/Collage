@@ -4,11 +4,12 @@
 COLLAGE_USER=collage
 
 # This is the directory where mutable state will be written
-COLLAGE_HOME=/home/collage
+COLLAGE_HOME=`echo ~$COLLAGE_USER`
 
 # This is the directory where the Collage source is located.
 # It will be added to this session's PYTHONPATH
-COLLAGE_ROOT=$HOME/git/collage
+SCRIPT_PATH=$(readlink -f $0)
+COLLAGE_ROOT=$(dirname $SCRIPT_PATH)
 
 #####################################################################
 

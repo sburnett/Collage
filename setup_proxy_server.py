@@ -11,12 +11,18 @@ setup(
         author='Sam Burnett',
         url='http://www.gtnoise.net/collage',
         packages=['collage'
-                 ,'collage_donation'
+                 ,'collage_donation.server'
+                 ,'collage_donation.client'
+                 ,'collage_donation.client.flickr_web_client'
                  ,'collage_apps'
+                 ,'collage_apps.tasks'
+                 ,'collage_apps.vectors'
+                 ,'collage_apps.providers'
+                 ,'collage_apps.proxy'
                  ],
         install_requires=['pycrypto'
                          ,'numpy'
                          ,'flickrapi'
-#                         ,'Imaging'
-                         ]
+                         ],
+        scripts=['run-proxy-server.sh'],
         )
