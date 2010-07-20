@@ -153,7 +153,7 @@ def upload(request):
     attributes = map(lambda tag: ('tag', tag), tags)
 
     try:
-        expiration = 60*60*int(expiration.strip())
+        expiration = int(expiration.strip())
     except ValueError:
         args['error'] = 'Please enter a valid number of hours'
         return render_to_response('upload.tpl', args)
@@ -161,6 +161,8 @@ def upload(request):
     if expiration > 24 or expiration < 0:
         args['error'] = 'Expiration can be at most 24 hours'
         return render_to_response('upload.tpl', args)
+
+    expiration = 60*60*expiration
 
     for filename in filenames:
         try:
