@@ -12,7 +12,6 @@ from collage_donation.client.flickr_web_client.settings import PROJECT_PATH
 # admin.autodiscover()
 
 urlpatterns = patterns('',
-        (r'^static/(?P<path>.*)$', serve, {'document_root': os.path.join(PROJECT_PATH, 'static')}),
         (r'^$', views.index),
         (r'^login$', views.login),
         (r'^logout$', views.logout),

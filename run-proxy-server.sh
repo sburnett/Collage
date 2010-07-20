@@ -23,7 +23,7 @@ export PYTHONPATH=$COLLAGE_ROOT;
 tmux new-session -s collage -d -n donation_server 'spawn-fcgi -s serv_misc/python-fastcgi.socket -n -- ${COLLAGE_ROOT}/collage_donation/server/server.py vectors; $WAIT';
 tmux new-window -t collage -n lighttpd_donation 'lighttpd -f ${COLLAGE_ROOT}/collage_donation/server/lighttpd.conf -D; $WAIT';
 tmux new-window -t collage -n garbage 'python -m collage_donation.server.garbage_collection vectors; $WAIT';
-tmux new-window -t collage -n django 'django-admin runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.sock pidfile=serv_misc/django.pid daemonize=false; $WAIT';
+tmux new-window -t collage -n django 'django-admin runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; $WAIT';
 tmux new-window -t collage -n lighttpd_flickr 'lighttpd -f ${COLLAGE_ROOT}/collage_donation/client/flickr_web_client/lighttpd.conf -D; $WAIT';
 tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.client.flickr_web_client.flickr_upload_daemon; $WAIT';
 tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags; $WAIT';
