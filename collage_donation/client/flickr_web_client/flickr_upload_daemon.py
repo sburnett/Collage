@@ -53,8 +53,6 @@ def main():
             if data != '':
                 print 'Uploading %s...' % key
 
-                pdb.set_trace()
-
                 datafile = tempfile.NamedTemporaryFile(delete=False)
                 datafile.write(data.data)
                 datafile.close()

@@ -21,7 +21,7 @@ export COLLAGE_USER=$COLLAGE_USER;
 export COLLAGE_HOME=$COLLAGE_HOME;
 export COLLAGE_ROOT=$COLLAGE_ROOT;
 export PYTHONPATH=$COLLAGE_ROOT;
-tmux new-session -s collage -d -n donation_server 'spawn-fcgi -s serv_misc/python-fastcgi.socket -n -- ${COLLAGE_ROOT}/collage_donation/server/server.py vectors; $WAIT';
+tmux new-session -s collage -d -n donation_server 'django-admin runfcgi --settings=collage_donation.server.settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; $WAIT';
 tmux new-window -t collage -n lighttpd_donation 'lighttpd -f ${COLLAGE_ROOT}/collage_donation/server/lighttpd.conf -D; $WAIT';
 tmux new-window -t collage -n garbage 'python -m collage_donation.server.garbage_collection vectors; $WAIT';
 tmux new-window -t collage -n django 'django-admin runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; $WAIT';

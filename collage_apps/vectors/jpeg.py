@@ -67,7 +67,11 @@ class OutguessVector(Vector):
                 xp.append(size)
                 yp.append(capacity)
 
-        return max(numpy.interp(len(self._data), xp, yp), 2)
+        try:
+            interped = int(numpy.interp(len(self._data), xp, yp))
+        except:
+            interped = 2
+        return max(interped, 2)
 
     def record_estimate(self, estimate):
         if self._estimate_db is not None:

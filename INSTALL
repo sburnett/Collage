@@ -5,6 +5,7 @@ General requirements:
 * Python >= 2.5, with development headers (http://www.python.org, apt-get install python-dev)
 * NumPy (http://numpy.scipy.org, apt-get install python-numpy)
 * PyCrypto (http://www.dlitz.net/software/pycrypto)
+* OutGuess (http://www.outguess.org, apt-get install outguess)
 
 Proxy client installation requirements:
 * Selenium, patched to support Collage (http://www.gtnoise.net/collage)
