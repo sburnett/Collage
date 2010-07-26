@@ -335,8 +335,9 @@ class ProxyFrame(wx.Frame):
         tasks = []
         #for pair in tag_pairs:
         #    tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
-        if self.local_dir is not None:
-            tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
+        #if self.local_dir is not None:
+        #    tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
+        tasks.append(('simple_web', 'SimpleWebHostTask(driver, %s)' % repr("http://127.0.0.1:8000")))
         self.database.delete_tasks()
         self.database.add_tasks(tasks)
 
