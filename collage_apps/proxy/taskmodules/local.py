@@ -13,6 +13,8 @@ from collage_apps.vectors.jpeg import OutguessVector
 
 from selenium.common.exceptions import NoSuchElementException
 
+import pdb
+
 class ReadDirectory(Task):
     def __init__(self, directory):
         self._directory = directory
@@ -21,6 +23,8 @@ class ReadDirectory(Task):
         raise NotImplementedError("Use photo donation tool")
 
     def receive(self, id):
+        pdb.set_trace()
+
         key = base64.b64encode(id, '-_')
         directory = os.path.join(self._directory, key)
 

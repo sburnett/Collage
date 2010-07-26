@@ -28,6 +28,6 @@ tmux new-window -t collage -n django 'django-admin runfcgi --settings=collage_do
 tmux new-window -t collage -n lighttpd_flickr 'lighttpd -f ${COLLAGE_ROOT}/collage_donation/client/flickr_web_client/lighttpd.conf -D; $WAIT';
 tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.client.flickr_web_client.flickr_upload_daemon; $WAIT';
 tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags; $WAIT';
-tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors --local-dir=/tmp/dummy; $WAIT';
+tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors --local-dir=/hosthome/dummyhost; $WAIT';
 tmux attach-session -t collage;"
 sudo -u $COLLAGE_USER -s -- bash -c \"$cmd\"

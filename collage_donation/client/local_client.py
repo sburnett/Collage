@@ -23,6 +23,8 @@ def donate(directory, filename, id):
     rc = proc.wait()
     key = proc.stdout.read()
 
+    print 'Wating for key %s' % key
+
     if key is None \
             or len(key) == 0 \
             or rc != 0:

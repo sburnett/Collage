@@ -38,9 +38,20 @@ class DownloadThread(threading.Thread):
 
         database = Database(self.db_filename)
         modules = database.get_loaded_task_modules()
-        all_tasks = database.get_tasks()
-        snippets = filter(lambda s: s.get_module() in modules, all_tasks)
-        tasks = map(lambda s: s.execute(self.driver), snippets)
+        snippets = database.get_tasks()
+
+        def dummy_receive(self, id):
+            print 'Task module not loaded'
+        def dummy_can_embed(self, id, data):
+            return False
+        def get_task_from_snippet(snippet):
+            task = snippet.execute(self.driver)
+            if snippet.get_module() not in modules:
+                task.receive = dummy_receive
+                task.can_embed = dummy_can_embed
+            return task
+
+        tasks = map(get_task_from_snippet, snippets)
 
         vector_provider = NullVectorProvider()
         message_layer = MessageLayer(vector_provider,
@@ -322,8 +333,8 @@ class ProxyFrame(wx.Frame):
         tag_pairs = [(a, b) for a in tags for b in tags if a < b] 
 
         tasks = []
-        for pair in tag_pairs:
-            tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
+        #for pair in tag_pairs:
+        #    tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
         if self.local_dir is not None:
             tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
         self.database.delete_tasks()
