@@ -43,7 +43,13 @@ class SimpleWebHostTask(Task):
 
                     img = d.find_element_by_tag_name('img')
                     src = img.get_attribute('src')
-                    data = d.get_url_from_cache(self._url + src)
+                    url = self._url + src
+                    try:
+                        data = d.get_url_from_cache(url)
+                    except:
+                        # Cheat
+                        data = urllib.urlopen(url).read()
+
                     yield OutguessVector(data)
 
                     d.back()
