@@ -192,28 +192,9 @@ def upload_file(request):
     except flickrapi.FlickrError:
         return HttpResponseBadRequest()
 
-    response = flickr.people_getInfo(user_id=userid)
-    ispro = response.find('person').attrib['ispro'] == '1'
-
     data = vector.read()
-
-    if ispro:
-        vector = data
-    else:
-        img = Image.open(StringIO.StringIO(data))
-        (width, height) = img.size
-        ratio = min(1024./width, 768./height)
-        if ratio >= 1.0:
-            vector = data
-        else:
-            img = img.resize((int(ratio*width), int(ratio*height)), Image.ANTIALIAS)
-            outfile = StringIO.StringIO()
-            img.save(outfile, 'JPEG')
-            vector = outfile.getvalue()
-            outfile.close()
-
     outf = tempfile.NamedTemporaryFile(suffix='.jpg', prefix='upload', dir=UPLOADS_DIR, delete=False)
-    outf.write(vector)
+    outf.write(data)
     outf.close()
 
     return HttpResponse(outf.name)
@@ -256,6 +237,9 @@ def callback(request):
         return HttpResponseRedirect('/login')
 
     userid = response.find('auth').find('user').attrib['nsid']
+    response = flickr.people_getInfo(user_id=userid)
+    if response.find('person').attrib['ispro'] != '1':
+        return HttpResponseRedirect('/static/notpro.html')
 
     print 'Updating: %s, %s' % (userid, token)
 

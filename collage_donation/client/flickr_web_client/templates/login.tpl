@@ -29,8 +29,8 @@
 
         <h2>Who can use it?</h2>
 
-        Anybody with a Flickr account can donate photos. If you don't have a
-        Flickr account, you can <a href="http://www.flickr.com/signup">sign up
+        Anybody with a Flickr Pro account can donate photos. If you don't have a
+        Flickr Pro account, you can <a href="http://www.flickr.com/signup">sign up
         for one</a>.
 
         <h2>How do I get started?</h2>
