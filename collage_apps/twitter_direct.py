@@ -12,7 +12,7 @@ import twitter
 from collage.messagelayer import MessageLayer
 
 from collage_apps.tasks.twitter import DirectTwitterTask
-from collage_apps.vectors.tweet import BlatantVector
+from collage_apps.vectors.tweet import BlatantVector, AllCapsVector
 from collage_apps.providers.local import NullVectorProvider, DirectoryVectorProvider
 from collage_apps.instruments import timestamper
 
@@ -47,7 +47,7 @@ def main():
         if options.directory is None:
             parser.error('Must specify a directory with tweets (*.tweet) in it, to embed and upload.')
 
-        vector_provider = DirectoryVectorProvider(BlatantVector,
+        vector_provider = DirectoryVectorProvider(AllCapsVector,
                                                   options.directory,
                                                   '.tweet')
 
@@ -58,7 +58,7 @@ def main():
             data = open(options.filename, 'r').read()
 
         api = twitter.Api(username=options.username, password=options.password)
-        tasks = [DirectTwitterTask(api, options.username, BlatantVector)]
+        tasks = [DirectTwitterTask(api, options.username, AllCapsVector)]
         message_layer = MessageLayer(vector_provider,
                                      block_size,
                                      max_unique_blocks,
@@ -78,7 +78,7 @@ def main():
         vector_provider = NullVectorProvider()
 
         api = twitter.Api()
-        tasks = [DirectTwitterTask(api, options.username, BlatantVector)]
+        tasks = [DirectTwitterTask(api, options.username, AllCapsVector)]
         message_layer = MessageLayer(vector_provider,
                                      block_size,
                                      max_unique_blocks,

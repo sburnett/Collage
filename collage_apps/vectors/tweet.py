@@ -2,6 +2,8 @@ import base64
 
 from collage.vectorlayer import Vector, EncodingError
 
+import pdb
+
 class BlatantVector(Vector):
     def __init__(self, data):
         super(BlatantVector, self).__init__(data)
@@ -35,6 +37,8 @@ class AllCapsVector(Vector):
         self._key_chars = 1
 
     def encode(self, data, id):
+        pdb.set_trace()
+
         key = base64.b64encode(id)[:self._key_chars]
 
         bit_mask = 1
@@ -99,6 +103,10 @@ class AllCapsVector(Vector):
         return cmp(self._data, other._data)
 
 class CapitalizationVector(Vector):
+    def __init__(self, data):
+        self._data = data
+        super(CapitalizationVector, self).__init__(data)
+
     def encode(self, data, key):
         cover = self._data
         num_bits = 0

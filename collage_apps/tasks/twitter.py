@@ -35,7 +35,6 @@ class WebTwitterTask(Task):
         print 'Pausing for %d seconds' % pause
         time.sleep(pause)
 
-
     def receive(self, id):
         self._driver.get('http://www.twitter.com/%s' % self._username)
     
