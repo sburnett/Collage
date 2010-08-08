@@ -10,6 +10,9 @@ import math
 
 import coder
 import vectorlayer
+from instrument import CollageStatus
+
+DISABLE_COMPRESSION = False
 
 class MessageLayerError(Exception):
     pass
@@ -36,7 +39,7 @@ class MessageLayer(object):
     _header_size_mask = 0x7F
 
     def __init__(self, vector_provider, block_size, max_unique_blocks,
-                 tasks, task_mapping_size, instrument=None, error_margin=2, mac=False):
+                 tasks, task_mapping_size, inst=None, error_margin=2, mac=False):
         """Initialize a message, using a particular Vector
             for storing message chunks."""
 
@@ -47,10 +50,10 @@ class MessageLayer(object):
         self._task_mapping_size = task_mapping_size
         self.reload_task_database(tasks)
 
-        if instrument is None:
-            self._instrument = lambda s: None
+        if inst is None:
+            self._instrument = instrument.Instrument()
         else:
-            self._instrument = instrument
+            self._instrument = inst
 
         self._error_margin = error_margin
         self._mac = mac
@@ -99,11 +102,14 @@ class MessageLayer(object):
         header = int(log(message_len, 2))
 
         compressed_blocks_buf = bz2.compress(blocks_buf)
-        if len(blocks_buf) <= len(compressed_blocks_buf):
+        if len(blocks_buf) <= len(compressed_blocks_buf) \
+                or DISABLE_COMPRESSION:
+            print 'Not using compression'
             payload = struct.pack('B%ds' % (len(blocks_buf),),
                                   header,
                                   blocks_buf)
         else:
+            print 'Using compression'
             compressed_header = self._header_compressed_mask | header
             payload = struct.pack('B%ds' % (len(compressed_blocks_buf),),
                                   compressed_header,
@@ -113,7 +119,7 @@ class MessageLayer(object):
     def send(self, identifier, data, num_vectors=0, send_ratio=1):
         """Send a message with an associated identifier."""
 
-        self._instrument('begin send')
+        self._instrument.change_status(CollageStatus.INIT)
     
         tasks = self._task_database.lookup(identifier)
         print 'Sending using tasks:'
@@ -131,7 +137,7 @@ class MessageLayer(object):
         else:
             bytes_sent = 0
             total_bytes = data_len*send_ratio
-            self._instrument('will upload %d bytes' % total_bytes)
+            print 'Will upload %d bytes' % total_bytes
 
         while True:
             if num_vectors > 0:
@@ -143,8 +149,7 @@ class MessageLayer(object):
 
             vector_result = self._vector_provider.get_vector(tasks)
             if vector_result is None:
-                self._instrument('end send')
-                self._instrument('send failure')
+                self._instrument.change_status(CollageStatus.FAILURE)
                 raise MessageLayerError('Unable to acquire enough vectors')
             (cover_vector, task) = vector_result
 
@@ -153,22 +158,22 @@ class MessageLayer(object):
                 for i in range(0, num_blocks):
                     blocks.append(encoder.next_block())
 
+                self._instrument.change_status(CollageStatus.ENCODING)
                 payload = self._prepare_payload(blocks, data_len)
+                self._instrument.change_status(CollageStatus.ENCRYPTING)
                 ciphertext = ARC4.new(key).encrypt(payload)
                 if self._mac:
                     mac = HMAC.new(identifier, msg=ciphertext).digest()
                     ciphertext = '%s%s' % (mac, ciphertext)
 
-                print 'Attempting to encode %d bytes' % (len(ciphertext),)
+                print 'Attempting to embed %d bytes' % (len(ciphertext),)
 
-                self._instrument('begin encode')
                 try:
+                    self._instrument.change_status(CollageStatus.EMBEDDING)
                     encoded_vector = cover_vector.encode(ciphertext, key)
                     print 'GOTVECTOR: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
                 except vectorlayer.EncodingError:
                     raise vectorlayer.EncodingError
-                finally:
-                    self._instrument('end encode')
 
                 return (len(ciphertext), encoded_vector)
 
@@ -216,21 +221,25 @@ class MessageLayer(object):
                     lower_bound = current_size
 
             if coded_vector:
-                cover_vector.record_estimate(current_size)
+                try:
+                    cover_vector.record_estimate(current_size)
+                except AttributeError:
+                    pass
 
-                self._instrument('upload %d bytes in %d byte cover' % (current_len, len(coded_vector.get_data())))
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
                 print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
                 print 'To upload length: %d' % len(coded_vector._data)
+                self._instrument.change_status(CollageStatus.UPLOADING)
                 task.send(key, coded_vector)
+                self._instrument.upload_vector(len(coded_vector.get_data()))
+                self._instrument.upload_chunks(current_len)
                 if num_vectors == 0:
                     bytes_sent += current_len
                     print 'We have sent %d of %d bytes' % (bytes_sent, total_bytes)
             else:
                 self._vector_provider.repurpose_vector(cover_vector)
 
-        self._instrument('end send')
-        self._instrument('send success')
+        self._instrument.change_status(CollageStatus.SUCCESS)
 
     def _decode_data(self, data):
         preamble_len = self._get_preamble_size(len(data))
@@ -261,7 +270,7 @@ class MessageLayer(object):
     def receive(self, identifier):
         """Receive a message with an associate identifier."""
 
-        self._instrument('begin receive')
+        self._instrument.change_status(CollageStatus.INIT)
 
         decoder = None
 
@@ -272,12 +281,14 @@ class MessageLayer(object):
 
         bytes_decoded = 0
 
+        self._instrument.change_status(CollageStatus.DOWNLOADING)
         for task in tasks:
             for vector in task.receive(key):
+                self._instrument.process_vector(len(vector.get_data()))
+
                 if vector.is_encoded(key):
-                    self._instrument('begin decode')
+                    self._instrument.change_status(CollageStatus.EXTRACTING)
                     ciphertext = vector.decode(key)
-                    self._instrument('end decode')
 
                     if self._mac:
                         try:
@@ -288,18 +299,21 @@ class MessageLayer(object):
                             digester.update(ciphertext)
                             if digester.digest() != mac:
                                 print 'MAC is not authentic'
+                                self._instrument.change_status(CollageStatus.DOWNLOADING)
                                 continue
                         except:
+                            self._instrument.change_status(CollageStatus.DOWNLOADING)
                             continue
 
                     try:
+                        self._instrument.change_status(CollageStatus.DECRYPTING)
                         decrypter = ARC4.new(key)
                         payload = decrypter.decrypt(ciphertext)
                     except:
+                        self._instrument.change_status(CollageStatus.DOWNLOADING)
                         continue
 
                     bytes_decoded += len(payload)
-                    self._instrument('decoded %d bytes from %d byte cover' % (bytes_decoded, len(vector.get_data())))
                     print 'Decoded %d bytes' % (bytes_decoded,)
 
                     (blocks, data_len) = self._get_blocks(payload)
@@ -307,7 +321,9 @@ class MessageLayer(object):
                     if decoder is None:
                         decoder = coder.Decoder(self._block_size, self._block_id_bytes, data_len)
 
+                    self._instrument.change_status(CollageStatus.DECODING)
                     for block in blocks:
+                        self._instrument.process_chunks(len(block))
                         decoder.process_block(block)
 
                     try:
@@ -315,12 +331,12 @@ class MessageLayer(object):
                     except ValueError:
                         pass
                     else:
-                        self._instrument('end receive')
-                        self._instrument('receive success')
+                        self._instrument.change_status(CollageStatus.SUCCESS)
                         return self._decode_data(data)
 
-        self._instrument('end_receive')
-        self._instrument('receive failure')
+                    self._instrument.change_status(CollageStatus.DOWNLOADING)
+
+        self._instrument.change_status(CollageStatus.FAILURE)
         raise MessageLayerError('Could not receive message using available tasks')
         
 class Task(object):

@@ -15,11 +15,13 @@ from selenium.firefox.webdriver import WebDriver
 import wx
 import wx.html
 import wx.calendar
+from wx.lib.pubsub import Publisher
 
 from collage.messagelayer import MessageLayer, MessageLayerError
+from collage.instrument import CollageStatus
 
 from collage_apps.providers.local import NullVectorProvider
-from collage_apps.instruments import create_logger
+from collage_apps.instruments import Logger
 
 import proxy_common as common
 
@@ -59,7 +61,7 @@ class DownloadThread(threading.Thread):
                                      common.MAX_UNIQUE_BLOCKS,
                                      tasks,
                                      common.TASKS_PER_MESSAGE,
-                                     create_logger(self.log_queue),
+                                     Logger(self.log_queue),
                                      mac=True)
         try:
             self.data = message_layer.receive(self.address)
@@ -83,6 +85,10 @@ class FetchFrame(wx.Dialog):
         self.db_filename = db_filename
         self.address = address
         self.data = None
+        self.vectors_downloaded = 0
+        self.chunks_decoded = 0
+        self.cover_received = 0
+        self.data_decoded = 0
 
         self.sizer = wx.FlexGridSizer(wx.VERTICAL)
         self.sizer.AddGrowableRow(1)
@@ -93,9 +99,22 @@ class FetchFrame(wx.Dialog):
                      'Do not interfere with these windows.'
         label = wx.StaticText(self, label=status_str, style=wx.ALIGN_CENTER)
         self.sizer.Add(label, flag=wx.ALIGN_CENTER)
+        self.sizer.Add(wx.StaticLine(self, style=wx.LI_HORIZONTAL), flag=wx.EXPAND)
 
-        self.control = wx.ListBox(self, style=wx.LB_SINGLE)
-        self.sizer.Add(self.control, flag=wx.ALIGN_CENTER|wx.EXPAND)
+        status_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.status_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        defFont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        self.status_label.SetFont(wx.Font(defFont.GetPointSize()+2, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
+        status_sizer.Add(self.status_label, flag=wx.ALIGN_LEFT)
+        self.vectors_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        status_sizer.Add(self.vectors_label, flag=wx.ALIGN_LEFT)
+        self.chunks_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        status_sizer.Add(self.chunks_label, flag=wx.ALIGN_LEFT)
+        self.efficiency_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        status_sizer.Add(self.efficiency_label, flag=wx.ALIGN_LEFT)
+
+        self.sizer.Add(status_sizer, flag=wx.ALL, border=4)
 
         cancel_button = wx.Button(self, id=wx.ID_CANCEL)
         self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
@@ -112,9 +131,13 @@ class FetchFrame(wx.Dialog):
         self.thread.daemon = True
         self.thread.start()
 
+        Publisher().subscribe(self.updateStatus, 'status')
+        Publisher().subscribe(self.updateVector, 'vector')
+        Publisher().subscribe(self.updateChunk, 'chunk')
+
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTick, self.timer)
-        self.timer.Start(milliseconds=100, oneShot=False)
+        self.timer.Start(milliseconds=1000, oneShot=False)
 
     def OnCancel(self, event):
         self.thread.close()
@@ -123,14 +146,24 @@ class FetchFrame(wx.Dialog):
     def OnClose(self, event):
         self.thread.close()
 
-    def OnTick(self, event):
-        while True:
-            try:
-                item = self.log_queue.get(False)
-                self.control.AppendAndEnsureVisible(item)
-            except Queue.Empty:
-                break
+    def updateStatus(self, msg):
+        self.status_label.SetLabel(msg.data)
 
+    def updateVector(self, msg):
+        self.vectors_downloaded += 1
+        self.cover_received += int(msg.data)
+        self.vectors_label.SetLabel('%d vectors downloaded' % self.vectors_downloaded)
+        if self.cover_received > 0:
+            self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
+
+    def updateChunk(self, msg):
+        self.chunks_decoded += 1
+        self.data_decoded += int(msg.data)
+        self.chunks_label.SetLabel('%d chunks decoded' % self.chunks_decoded)
+        if self.cover_received > 0:
+            self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
+
+    def OnTick(self, arg):
         if not self.thread.is_alive():
             self.data = self.thread.get_data()
             self.timer.Stop()
@@ -322,22 +355,26 @@ class ProxyFrame(wx.Frame):
                 self.database.add_file(address, data)
 
     def OnUpdate(self, event):
-        pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
-        match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
-        block = match.group(1)
-        block = re.sub(r'<a href=".*?".*?>', '', block)
-        block = re.sub(r'</a>', '', block)
-        block = re.sub(r'&nbsp;', '', block)
-
-        tags = block.split()
-        tag_pairs = [(a, b) for a in tags for b in tags if a < b] 
-
         tasks = []
-        #for pair in tag_pairs:
-        #    tasks.append(('flickr', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
-        #if self.local_dir is not None:
-        #    tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
-        tasks.append(('simple_web', 'SimpleWebHostTask(driver, %s)' % repr("http://127.0.0.1:8000")))
+
+        if self.local_dir is not None:
+            tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
+        else:
+            pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
+            match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
+            block = match.group(1)
+            block = re.sub(r'<a href=".*?".*?>', '', block)
+            block = re.sub(r'</a>', '', block)
+            block = re.sub(r'&nbsp;', '', block)
+
+            tags = block.split()
+            tag_pairs = [(a, b) for a in tags for b in tags if a < b] 
+
+            tasks.append(('flickr_user', 'WebUserFlickrTask(driver, %s)' % repr('srburnet')))
+            #for pair in tag_pairs:
+            #    tasks.append(('flickr_new', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
+            #tasks.append(('simple_web', 'SimpleWebHostTask(driver, %s)' % repr("http://143.215.129.51:8000")))
+
         self.database.delete_tasks()
         self.database.add_tasks(tasks)
 
@@ -384,6 +421,7 @@ class Database(object):
     def __init__(self, filename):
         self.conn = sqlite3.connect(filename)
         self.conn.row_factory = sqlite3.Row
+        self.conn.text_factory = str
 
         self.conn.execute('''CREATE TABLE IF NOT EXISTS downloads
                              (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
@@ -394,7 +432,7 @@ class Database(object):
         self.conn.commit()
 
     def add_file(self, address, contents):
-        self.conn.execute('''DELETE FROM downloads WHERE address = ?''', (contents,))
+        self.conn.execute('''DELETE FROM downloads WHERE address = ?''', (address,))
         self.conn.execute('''INSERT INTO downloads (address, contents)
                              VALUES (?, ?)''', (address, contents))
         self.conn.commit()

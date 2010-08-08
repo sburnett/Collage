@@ -9,8 +9,6 @@ import ConfigParser
 import tempfile
 import subprocess
 
-import pdb
-
 run_script_text = '''cd %(directory)s;
 export COLLAGE_USER=%(user)s;
 export COLLAGE_HOME=%(directory)s;
@@ -19,11 +17,11 @@ export PYTHONPATH=%(collage_root)s;
 tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_donation 'lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n garbage 'python -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n django '%(django_admin)s runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n django 'sleep 10; %(django_admin)s runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_flickr 'lighttpd -f %(collage_root)s/collage_donation/client/flickr_web_client/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.client.flickr_web_client.flickr_upload_daemon; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors -r 1 --local-dir=/hosthome/dummyhost; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors; echo Process terminated. Press ENTER to exit.; read';
 tmux attach-session -t collage;'''
 
 clean_script_text = '''cd %(directory)s;
@@ -138,7 +136,6 @@ def main():
 
     cmd = 'sudo -u %s -s -- bash %s' % (user, script_path)
     print 'Running command %s' % cmd
-    pdb.set_trace()
     subprocess.call(cmd, shell=True)
     print 'Done with command'
     os.unlink(script_path)

@@ -15,7 +15,7 @@ from collage.messagelayer import MessageLayer
 from collage_apps.tasks.flickr import DonateTagPairFlickrTask
 from collage_apps.tasks.local import DonateDirectoryTask
 from collage_apps.providers.flickr import DonatedVectorProvider
-from collage_apps.instruments import timestamper
+from collage_apps.instruments import Timestamper
 
 import proxy_common as common
 
@@ -23,10 +23,11 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
     database = AppDatabase(db_dir, 'proxy')
 
     tasks = []
-    #tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-    #tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
     if local_dir is not None:
         tasks.append(DonateDirectoryTask(local_dir, address, database))
+    else:
+        tag_pairs = [(a, b) for a in tags for b in tags if a < b]
+        tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
 
     vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
 
@@ -35,7 +36,7 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
                                  common.MAX_UNIQUE_BLOCKS,
                                  tasks,
                                  common.TASKS_PER_MESSAGE,
-                                 timestamper,
+                                 Timestamper(),
                                  mac=True)
 
     #print 'Sending message: %s' % data
@@ -69,7 +70,7 @@ def get_news(today):
         else:
             stories.append('<div>' + match.group('title') + match.group('story') + '</div>')
 
-    payload = ''.join(stories)
+    payload = ''.join(stories[:5])
     return payload
 
 def get_tags():
