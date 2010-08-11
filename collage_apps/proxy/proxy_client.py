@@ -103,15 +103,15 @@ class FetchFrame(wx.Dialog):
 
         status_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.status_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        self.status_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
         defFont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         self.status_label.SetFont(wx.Font(defFont.GetPointSize()+2, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
         status_sizer.Add(self.status_label, flag=wx.ALIGN_LEFT)
-        self.vectors_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        self.vectors_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.vectors_label, flag=wx.ALIGN_LEFT)
-        self.chunks_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        self.chunks_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.chunks_label, flag=wx.ALIGN_LEFT)
-        self.efficiency_label = wx.StaticText(self, label='', style=wx.ALIGN_LEFT)
+        self.efficiency_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.efficiency_label, flag=wx.ALIGN_LEFT)
 
         self.sizer.Add(status_sizer, flag=wx.ALL, border=4)
@@ -121,9 +121,10 @@ class FetchFrame(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
         self.Bind(wx.EVT_CLOSE, self.OnClose, self)
 
+        self.SetAutoLayout(True)
         self.SetSizer(self.sizer)
-        self.SetAutoLayout(1)
         self.sizer.Fit(self)
+        self.Layout()
 
         self.log_queue = Queue.Queue(100)
 
