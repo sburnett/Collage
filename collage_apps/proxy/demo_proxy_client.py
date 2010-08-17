@@ -375,8 +375,7 @@ class ProxyFrame(wx.Frame):
             if 'flickr_user' in modules:
                 tasks.append(('flickr_user', 'WebUserFlickrTask(driver, %s)' % repr('srburnet')))
             if 'flickr_new' in modules:
-                for pair in tag_pairs:
-                    tasks.append(('flickr_new', 'WebTagPairFlickrTask(driver, %s)' % repr(pair)))
+                tasks.append(('flickr_new', 'WebTagPairFlickrTask(driver, %s)' % repr(('nature', 'vacation'))))
             #tasks.append(('simple_web', 'SimpleWebHostTask(driver, %s)' % repr("http://143.215.129.51:8000")))
 
         self.database.delete_tasks()

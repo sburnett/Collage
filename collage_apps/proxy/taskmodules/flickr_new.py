@@ -1,9 +1,11 @@
-# Decode censored content from Flickr, updated for new photo pages
+# Low performance, more deniability. Decode censored content from Flickr by  searching for keywords.
 
 import hashlib
 import base64
 from datetime import datetime, timedelta
 import time
+
+import pdb
 
 from collage.messagelayer import Task
 
@@ -91,9 +93,15 @@ class WebTagPairFlickrTask(Task):
 
                 try:
                     options_button = d.find_element_by_id('button-bar-options')
-                    options_button.click()
-                    time.sleep(1)
+                except NoSuchElementException:
+                    d.back()
+                    continue
+
+                try:
                     zoom_button = d.find_element_by_xpath('//div[@id="options-menu"]/ul/li/a[@data-ywa-name="All Sizes"]')
+                    while not zoom_button.is_displayed():
+                        options_button.click()
+                        time.sleep(1)
                     zoom_button.click()
                 except NoSuchElementException:
                     d.back()
@@ -128,8 +136,11 @@ class WebTagPairFlickrTask(Task):
 
                 if click_another_size:
                     d.back()   # Back to first size photo page
+                    time.sleep(1)
                 d.back()       # Back to photo summary page
+                time.sleep(1)
                 d.back()       # Back to search results page
+                time.sleep(1)
         
             try:
                 next_link = d.find_element_by_xpath('//a[@class="Next"]')

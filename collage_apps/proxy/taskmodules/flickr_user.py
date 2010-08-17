@@ -1,4 +1,4 @@
-# Decode censored content from Flickr by search a user's account
+# High performance, low deniability. Decode censored content from Flickr by searching a user's account
 
 import hashlib
 import base64
