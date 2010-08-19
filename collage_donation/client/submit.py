@@ -5,6 +5,8 @@ from optparse import OptionParser
 
 from rpc import submit
 
+import pdb
+
 def main():
     usage = 'usage: %s [options] <application>'
     parser = OptionParser(usage=usage)
@@ -19,6 +21,9 @@ def main():
 
     data = sys.stdin.read()
     application = args[0]
+
+    print >>sys.stderr, args[0]
+
     attrs = []
     for attr in options.attributes:
         attrs.append(tuple(attr.split(':', 1)))

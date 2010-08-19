@@ -19,18 +19,11 @@ from collage_apps.instruments import Timestamper
 
 import proxy_common as common
 
-def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, estimate_db):
-    database = AppDatabase(db_dir, 'proxy')
+def send_news_centralized(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    database = AppDatabase(db_dir, 'proxy_centralized')
 
-    tasks = []
-    if local_dir is not None:
-        tasks.append(DonateDirectoryTask(local_dir, address, database))
-    else:
-        tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-        tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
-
+    tasks = [DonateTagPairFlickrTask(('nature', 'vacation'), database)]
     vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
-
     message_layer = MessageLayer(vector_provider,
                                  common.BLOCK_SIZE,
                                  common.MAX_UNIQUE_BLOCKS,
@@ -39,10 +32,40 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
                                  Timestamper(),
                                  mac=True)
 
-    #print 'Sending message: %s' % data
+    message_layer.send(address, data, send_ratio=send_ratio)
+
+def send_news_community(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    database = AppDatabase(db_dir, 'proxy_community')
+
+    tag_pairs = [(a, b) for a in tags for b in tags if a < b]
+    tasks = map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs)
+    vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
+    message_layer = MessageLayer(vector_provider,
+                                 common.BLOCK_SIZE,
+                                 common.MAX_UNIQUE_BLOCKS,
+                                 tasks,
+                                 common.TASKS_PER_MESSAGE,
+                                 Timestamper(),
+                                 mac=True)
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
+def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, estimate_db):
+    database = AppDatabase(db_dir, 'proxy_local')
+
+    tasks = [DonateDirectoryTask(local_dir, address, database)]
+    vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
+    message_layer = MessageLayer(vector_provider,
+                                 common.BLOCK_SIZE,
+                                 common.MAX_UNIQUE_BLOCKS,
+                                 tasks,
+                                 common.TASKS_PER_MESSAGE,
+                                 Timestamper(),
+                                 mac=True)
+
+    message_layer.send(address, data, send_ratio=send_ratio)
+
+MAX_PAYLOAD_SIZE=32000
 def get_news(today):
     urls = []
 
@@ -70,7 +93,15 @@ def get_news(today):
         else:
             stories.append('<div>' + match.group('title') + match.group('story') + '</div>')
 
-    payload = ''.join(stories[:5])
+    payload = ''
+    num_stories = 0
+    for story in stories:
+        if len(payload) + len(story) < MAX_PAYLOAD_SIZE:
+            payload += story
+            num_stories += 1
+
+    print 'Publishing %d articles' % num_stories
+
     return payload
 
 def get_tags():
@@ -113,19 +144,40 @@ def main():
         db_dir = args[0]
         tags = get_tags()
         
-        killswitch = threading.Event()
+        thread_info = []
 
-        thread = threading.Thread(target=send_news,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, options.local_dir, estimate_db))
+        # Centralized
+        killswitch = threading.Event()
+        thread = threading.Thread(target=send_news_centralized,
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
         thread.daemon = True
         thread.start()
+        thread_info.append((thread, killswitch))
+
+        # Community
+        killswitch = threading.Event()
+        thread = threading.Thread(target=send_news_community,
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
+        thread.daemon = True
+        thread.start()
+        thread_info.append((thread, killswitch))
+
+        # Local directory
+        if options.local_dir is not None:
+            killswitch = threading.Event()
+            thread = threading.Thread(target=send_news_community,
+                                      args=(address, data, db_dir, options.local_dir, options.send_ratio, killswitch, estimate_db))
+            thread.daemon = True
+            thread.start()
+            thread_info.append((thread, killswitch))
 
         while today.day == datetime.datetime.utcnow().day:
             time.sleep(1)
 
-        if thread.is_alive():
-            killswitch.set()
-            thread.join()
+        for (thread, killswitch) in thread_info:
+            if thread.is_alive():
+                killswitch.set()
+                thread.join()
 
 if __name__ == '__main__':
     main()

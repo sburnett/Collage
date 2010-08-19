@@ -8,7 +8,7 @@ import base64
 import hashlib
 import glob
 
-APPLICATION_NAME = 'proxy'
+APPLICATION_NAME = 'proxy_local'
 
 def find_filename(directory):
     idx = 0

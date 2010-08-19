@@ -58,7 +58,7 @@ class DonaterDatabase(DonationDatabase):
 
         cur = self._conn.execute('''SELECT name FROM applications WHERE name = ?''', (application,))
         if cur.fetchone() is None:
-            return 'Invalid application name'
+            return 'Invalid application name: %s' % application
 
         secretkey = '%.16x' % random.randint(0, sys.maxint)
         expiration = min(expiration, self._max_expiration)

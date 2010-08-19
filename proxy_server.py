@@ -21,6 +21,7 @@ tmux new-window -t collage -n django 'sleep 10; %(django_admin)s runfcgi --setti
 tmux new-window -t collage -n lighttpd_flickr 'lighttpd -f %(collage_root)s/collage_donation/client/flickr_web_client/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.client.flickr_web_client.flickr_upload_daemon; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n centralized_donate 'sleep 15; python -m collage_donation.client.proxy_centralized_donate %(directory)s/centralized_photos; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors; echo Process terminated. Press ENTER to exit.; read';
 tmux attach-session -t collage;'''
 

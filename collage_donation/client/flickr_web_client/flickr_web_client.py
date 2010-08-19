@@ -28,7 +28,7 @@ api_secret = '083b2c8757e2971f'
 flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
-APPLICATION_NAME = 'proxy'
+APPLICATION_NAME = 'proxy_community'
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 UPLOADS_DIR = os.path.abspath('uploads')
 
