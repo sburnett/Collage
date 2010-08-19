@@ -72,7 +72,12 @@ def donate(flickr, filename, id, title, tags):
         outfile.close()
 
         if rc == 0:
-            upload_photo(flickr, outfile.name, title, '', tags)
+            try:
+                upload_photo(flickr, outfile.name, title, '', tags)
+            except:
+                print 'Failed to donate photo'
+                return
+
             print 'Successfully donated photo'
             return
 

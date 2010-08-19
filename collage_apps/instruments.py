@@ -1,8 +1,11 @@
 import sys
 import time
 
-import wx
-from wx.lib.pubsub import Publisher
+try:
+    import wx
+    from wx.lib.pubsub import Publisher
+except ImportError:
+    pass
 
 import collage.instrument as instrument
 
