@@ -105,13 +105,13 @@ class FetchFrame(wx.Dialog):
 
         status_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.status_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
+        self.status_label = wx.StaticText(self, label='Opening Firefox', style=wx.ALIGN_LEFT)
         defFont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         self.status_label.SetFont(wx.Font(defFont.GetPointSize()+2, wx.DEFAULT, wx.NORMAL, wx.NORMAL))
         status_sizer.Add(self.status_label, flag=wx.ALIGN_LEFT)
-        self.vectors_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
+        self.vectors_label = wx.StaticText(self, label='0 vectors downloaded', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.vectors_label, flag=wx.ALIGN_LEFT)
-        self.chunks_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
+        self.chunks_label = wx.StaticText(self, label='0 chunks decoded', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.chunks_label, flag=wx.ALIGN_LEFT)
         self.efficiency_label = wx.StaticText(self, label=' ', style=wx.ALIGN_LEFT)
         status_sizer.Add(self.efficiency_label, flag=wx.ALIGN_LEFT)
@@ -155,14 +155,20 @@ class FetchFrame(wx.Dialog):
     def updateVector(self, msg):
         self.vectors_downloaded += 1
         self.cover_received += int(msg.data)
-        self.vectors_label.SetLabel('%d vectors downloaded' % self.vectors_downloaded)
+        if self.vectors_downloaded == 1:
+            self.vectors_label.SetLabel('%d vector downloaded' % self.vectors_downloaded)
+        else:
+            self.vectors_label.SetLabel('%d vectors downloaded' % self.vectors_downloaded)
         if self.cover_received > 0:
             self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
 
     def updateChunk(self, msg):
         self.chunks_decoded += 1
         self.data_decoded += int(msg.data)
-        self.chunks_label.SetLabel('%d chunks decoded' % self.chunks_decoded)
+        if self.chunks_decoded == 1:
+            self.chunks_label.SetLabel('%d chunk decoded' % self.chunks_decoded)
+        else:
+            self.chunks_label.SetLabel('%d chunks decoded' % self.chunks_decoded)
         if self.cover_received > 0:
             self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
 
@@ -256,58 +262,14 @@ class OpenFrame(wx.Dialog):
     def OnCancel(self, event):
         self.EndModal(wx.CANCEL)
 
-class TasksFrame(wx.Dialog):
-    my_title = 'Collage task modules'
-    def __init__(self, parent, db_filename):
-        wx.Dialog.__init__(self, parent, title=self.my_title)
-
-        self.db_filename = db_filename
-        self.database = Database(db_filename)
-
-        self.sizer = wx.FlexGridSizer(wx.VERTICAL)
-        self.sizer.AddGrowableRow(1)
-        self.sizer.AddGrowableCol(0)
-
-        label = wx.StaticText(self, label='This is a list of available task modules.')
-        self.sizer.Add(label, flag=wx.TOP|wx.ALIGN_CENTER)
-
-        modules = []
-        modules_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'taskmodules')
-        for _, name, _ in pkgutil.iter_modules([modules_dir]):
-            fh = open(os.path.join(modules_dir, '%s.py' % name), 'r')
-            try:
-                desc = fh.readline()[1:].strip()
-            except:
-                desc = ''
-            loaded = self.database.is_task_module_loaded(name)
-            modules.append((name, desc, loaded))
-            fh.close()
-
-        self.control = wx.CheckListBox(self)
-        for (idx, (name, desc, loaded)) in enumerate(modules):
-            self.control.Append('%s: %s' % (name, desc), name)
-            self.control.Check(idx, loaded)
-        self.sizer.Add(self.control, flag=wx.EXPAND)
-
-        close_button = wx.Button(self, id=wx.ID_CLOSE)
-        self.sizer.Add(close_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnClose, close_button)
-
-        self.SetSizer(self.sizer)
-        self.SetAutoLayout(1)
-        self.sizer.Fit(self)
-
-    def OnClose(self, event):
-        self.loaded = []
-        for idx in self.control.GetChecked():
-            self.loaded.append(self.control.GetClientData(idx))
-        self.EndModal(wx.OK)
-
-    def GetLoaded(self):
-        return self.loaded
+welcome_page_source = '''<h1>Collage News Reader</h1>
+<p>This application fetches news articles stored inside user-generated media, such as photos on Flickr.</p>
+<p>To begin you can <a href="fetch">fetch the latest news</a>. You can also <a href="open">read your old news</a>.
+<p>This program is a proof-of-concept of Collage, a new censorship circumvention technique from Georgia Tech. For more information on Collage, please go to <a href="http://www.gtnoise.net/collage">http://www.gtnoise.net/collage</a>.</p>
+'''
 
 class ProxyFrame(wx.Frame):
-    my_title = 'Collage proxy client'
+    my_title = 'Collage news reader client'
     my_min_update_time = datetime.timedelta(1)
 
     def __init__(self, parent, db_filename, local_dir=None):
@@ -332,7 +294,7 @@ class ProxyFrame(wx.Frame):
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_ANY, '&Fetch latest news...', 'Fetch the latest news')
         self.Bind(wx.EVT_MENU, self.OnFetch, item)
-        item = filemenu.Append(wx.ID_OPEN, '&Open...', 'View censored documents')
+        item = filemenu.Append(wx.ID_OPEN, '&Open old news...', 'View censored documents')
         self.Bind(wx.EVT_MENU, self.OnOpen, item)
         #item = filemenu.Append(wx.ID_ANY, '&Update task database', 'Fetch the latest task database')
         #self.Bind(wx.EVT_MENU, self.OnUpdate, item)
@@ -347,6 +309,8 @@ class ProxyFrame(wx.Frame):
         self.SetMenuBar(menubar)
 
         self.control = wx.html.HtmlWindow(self)
+        self.control.SetPage(welcome_page_source)
+        self.showing_welcome_page = True
         self.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.OnLinkClick, self.control)
 
         self.Show(True)
@@ -363,6 +327,7 @@ class ProxyFrame(wx.Frame):
         if contents is not None:
             self.SetTitle('%s - %s' % (address, self.my_title))
             self.control.SetPage(contents)
+            self.showing_welcome_page = False
 
     def OnFetch(self, event):
         address = common.format_address(datetime.datetime.utcnow())
@@ -374,7 +339,7 @@ class ProxyFrame(wx.Frame):
             if self.local_dir is not None:
                 descriptions['With a local testing directory'] = 'local'
 
-            dlg = wx.SingleChoiceDialog(self, 'How do you want to fetch the news?', 'Task modules', sorted(descriptions.keys()))
+            dlg = wx.SingleChoiceDialog(self, 'How do you want to fetch the news?\n\nThere is a tradeoff between deniability and speed:\nThe faster you download the news, the it will be easier\nfor a censor to identify your activity.', 'Task modules', sorted(descriptions.keys()))
             if dlg.ShowModal() != wx.ID_OK:
                 dlg.Destroy()
                 return
@@ -434,14 +399,23 @@ class ProxyFrame(wx.Frame):
         self.Close(True)
 
     def OnLinkClick(self, event):
-        dlg = wx.MessageDialog(self,
-                               'This link will be opened in your regular Web browser and will not be fetched using Collage. Are you sure you want to continue?',
-                               'Warning: %s' % event.GetLinkInfo().GetHref(),
-                               style=wx.YES_NO|wx.ICON_EXCLAMATION)
-        rc = dlg.ShowModal()
-        dlg.Destroy()
-        if rc == wx.ID_YES:
-            webbrowser.open(event.GetLinkInfo().GetHref())
+        if self.showing_welcome_page:
+            href = event.GetLinkInfo().GetHref()
+            if href == 'fetch':
+                self.OnFetch(event)
+            elif href == 'open':
+                self.OnOpen(event)
+            else:
+                webbrowser.open(href)
+        else:
+            dlg = wx.MessageDialog(self,
+                                   'This link will be opened in your regular Web browser and will not be fetched using Collage. Are you sure you want to continue?',
+                                   'Warning: %s' % event.GetLinkInfo().GetHref(),
+                                   style=wx.YES_NO|wx.ICON_EXCLAMATION)
+            rc = dlg.ShowModal()
+            dlg.Destroy()
+            if rc == wx.ID_YES:
+                webbrowser.open(event.GetLinkInfo().GetHref())
 
 class Snippet(object):
     def __init__(self, module, command):
