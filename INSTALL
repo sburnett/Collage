@@ -32,4 +32,5 @@ Server setup
     chown collage.collage ~collage/serv_misc/server.pem
     chmod 600 ~collage/serv_misc/server.pem
 
-5. Run "run-proxy-server.sh". This will start a new tmux instance with all server infrastructure running inside it.
+5. Run "proxy_server.py -u collage". This will start a new tmux instance with all server infrastructure running inside it.
+   Depending on your Linux distribution, you may also need to supply the "-d" argument as well.
