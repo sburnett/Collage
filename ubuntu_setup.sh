@@ -1,16 +1,29 @@
 #!/bin/bash
 
-clear
-echo "This script will automatically install the Collage demo on your computer."
-echo "It is assumed you are running a recent version of Ubuntu. Debian may also work."
-echo
-echo "Before continuing, please enable the Universe repository."
-echo "For instructions please see:"
-echo
-echo "    https://help.ubuntu.com/community/Repositories/Ubuntu"
-echo
-echo "Once you have enabled the Universe repository, press <ENTER> to continue."
-read
+UNIVERSE=`grep "^[^#]" /etc/apt/sources.list | grep -c " universe$"`
+if [ "$UNIVERSE" == "0" ]
+then
+    clear
+    echo "This script will automatically install the Collage demo on your computer."
+    echo "It is assumed you are running a recent version of Ubuntu."
+    echo
+    echo "Before continuing, we will enable the Universe repository."
+    echo "This change will only be in effect during this installation."
+    echo "Your /etc/apt/sources.list will not be permanently altered."
+    echo
+    echo "To enable the Universe repository, press <ENTER>."
+    read
+
+    sudo cp /etc/apt/sources.list /etc/apt/sources.list.collage_backup
+    RELEASE=`lsb_release -s -c`
+    sudo bash -c "echo deb http://archive.ubuntu.com/ubuntu $RELEASE universe >> /etc/apt/sources.list"
+else
+    clear
+    echo "This script will automatically install the Collage demo on your computer."
+    echo
+    echo "Press <ENTER> to continue."
+    read
+fi
 
 clear
 echo "First we are going to install the following packages if they are not"
@@ -68,6 +81,10 @@ echo
 echo "Press <ENTER> to continue."
 read
 rm -rf $SETUPDIR
+if [ "$UNIVERSE" == "0" ]
+then
+    sudo mv /etc/apt/sources.list.collage_backup /etc/apt/sources.list
+fi
 
 clear
 echo "Installation is complete."
