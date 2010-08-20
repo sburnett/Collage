@@ -1,0 +1,3 @@
+#!/bin/bash
+
+python -m collage_apps.proxy.demo_proxy_client
