@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import base64
 import time
+import os
 
 import numpy
 import hashlib
@@ -29,7 +30,7 @@ class OutguessVector(Vector):
         command = ['outguess', '-k', base64.b64encode(key), 
                    '-d', data_file.name,
                    cover_file.name, dest_file.name]
-        proc = subprocess.Popen(command, stdout=open('/dev/null', 'w'),
+        proc = subprocess.Popen(command, stdout=open(os.devnull, 'w'),
                                          stderr=subprocess.STDOUT)
 
         time_left = self._timeout
@@ -86,9 +87,9 @@ class OutguessVector(Vector):
         print 'Key: %s' % base64.b64encode(key)
         print 'Image hash: %s' % hashlib.md5(self._data).hexdigest()
         if self._decoded_data is None:
-            embedded_file = tempfile.NamedTemporaryFile(suffix='.jpg')
+            embedded_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
             embedded_file.write(self._data)
-            embedded_file.flush()
+            embedded_file.close()
             data_file = tempfile.NamedTemporaryFile()
 
             print '!DC image: ' + hashlib.md5(open(embedded_file.name, 'r').read()).hexdigest()
@@ -98,8 +99,10 @@ class OutguessVector(Vector):
                        '-r', embedded_file.name,
                        data_file.name]
             print '!DC command: ' + str(command)
-            retcode = subprocess.call(command, stdout=open('/dev/null', 'w'),
+            retcode = subprocess.call(command, stdout=open(os.devnull, 'w'),
                                                stderr=subprocess.STDOUT)
+
+            os.unlink(embedded_file.name)
 
             if retcode != 0:
                 return None

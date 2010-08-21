@@ -37,7 +37,7 @@ sudo apt-get update
 sudo apt-get install python-dev python-setuptools python-numpy outguess python-wxgtk2.8
 
 clear
-echo "We are now going to download and install a Python cryptography package."
+echo "We are now going to install PyCrypto, a Python cryptography package."
 echo
 echo "Press <ENTER> to continue."
 read
