@@ -149,7 +149,7 @@ def main():
     if use_su:
         cmd = 'su %s %s' % (user, script_path)
     else:
-        cmd = 'sudo -u %s -s -- bash %s' % (user, script_path)
+        cmd = 'sudo -u %s -i -- bash %s' % (user, script_path)
     print 'Running command %s' % cmd
     subprocess.call(cmd, shell=True)
     print 'Done with command'
