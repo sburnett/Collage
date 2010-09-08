@@ -1,3 +1,17 @@
+"""
+The core of Collage's asynchronous message channel.
+
+Some terminology:
+* A vector is some cover material used to store message data. Examples include
+  JPEGs, tweets, YouTube videos, etc.
+* We abbreviate user-generated content as UGC.
+* Messages are split into chunks using erasure coding.
+* Message chunks are embedded inside vectors using, e.g., steganography.
+* Tasks are used to send and receive embedded vectors to and from
+  user-generated content (UGC) hosts (e.g., Flickr, Picasa, YouTube, etc.)
+
+"""
+
 import hashlib
 from Crypto.Cipher import ARC4
 from Crypto.Hash import HMAC
@@ -15,11 +29,18 @@ from instrument import CollageStatus
 DISABLE_COMPRESSION = False
 
 class MessageLayerError(Exception):
+    """Raised when the message layer fails to send or receive a message."""
     pass
 
 class MessageLayer(object):
-    """Implementation of Collage's message layer. You must provide
-    several parameters to this layer to use it in your application.
+    """Implementation of Collage's message layer.
+    
+    This module runs messages through encryption and erasure coding
+    and executes tasks, but relies on applications to provide
+    several external components:
+    * Some vectors (e.g., JPEGs), via an instance of VectorProvider.
+    * A list of tasks (e.g., "Search Flickr for 'blue flowers'").
+    * Tuning parameters: erasure code block size and tasks per message.
     
     Details not present in the paper:
     * Message sizes are powers of 2; This class transparently handles extending
@@ -28,7 +49,9 @@ class MessageLayer(object):
     * Erasure code block sizes are also powers of 2.
     * The message format is as follows: the message is padded with zeroes to
         the next power of two, including the padding header. The padding header
-        contains the length of the padding appended to the message."""
+        contains the length of the padding appended to the message.
+        
+    """
 
     _header_bytes = { struct.calcsize('I'): 'I'
                     , struct.calcsize('H'): 'H'
@@ -40,8 +63,32 @@ class MessageLayer(object):
 
     def __init__(self, vector_provider, block_size, max_unique_blocks,
                  tasks, task_mapping_size, inst=None, error_margin=2, mac=False):
-        """Initialize a message, using a particular Vector
-            for storing message chunks."""
+        """Initialize a message channel using application specific parameters.
+
+        These parameters are:
+        * An instance VectorProvider that provides vectors (e.g., JPEGs) for
+          storing message chunks.
+        * The block size, for the erasure coder. A good value is 8.
+        * The maximum unique blocks permitted by the coder. This should be at
+          least large as the total number of blocks you expect to publish inside
+          vectors on user-generated content hosts.
+        * A list of Tasks used to send and receive messages.
+        * The task mapping size, which is the number of tasks allotted to each
+          message. A higher number spreads a message's content over a wider
+          area on a content host; this provides more redundancy, but also
+          forces receivers to expend more effort.
+
+        There are several optional parameters:
+        * An instance of Instrument, for performing logging and monitoring
+        * An error margin in the amount of data encoded in each vector. By
+          default, we perform a binary search to discover exactly how much
+          content can be stored inside a vector; this parameter allows some
+          inaccuracy in this search, which can significantly speed up encoding.
+        * Whether or not to include a message authentication code in each
+          encoded vector. If you cannot tell whether a vector contains
+          message data, then you should enable this option.
+
+        """
 
         self._vector_provider = vector_provider
         self._block_size = block_size
@@ -73,8 +120,12 @@ class MessageLayer(object):
             raise ValueError('Message too big')
 
     def _format_message_data(self, data):
-        """Pad a message with zeroes out to the nearest power of two, and store
-            the length of the pad at the front of the message."""
+        """Pad a message with zeroes out to the nearest power of two.
+        
+        We store the length of the pad at the front of the message.
+        
+        """
+
         preamble_len = self._sender_get_preamble_size(len(data))
         format_flag = self._header_bytes[preamble_len]
         data_len = len(data) + preamble_len
@@ -117,7 +168,22 @@ class MessageLayer(object):
         return payload
 
     def send(self, identifier, data, num_vectors=0, send_ratio=1):
-        """Send a message with an associated identifier."""
+        """Send a message with an associated identifier.
+        
+        The same identifier must be used by the receiver. It is
+        the application's responsibility to make sure the receiver
+        knows the identifier.
+        
+        Roughly, this method stores the message inside vectors
+        and uploads them to user-generated content hosts. There
+        are two ways of limiting how many vectors are uploaded:
+        * Specifying a hard limit on the number of vectors (num_vectors).
+        * Specifying how many message blocks should be uploaded (send_ratio). A
+          value of 1 means "send exactly enough message blocks to reconstruct
+          the message", a value of 2 means "send twice as many blocks
+          as required", etc.
+
+        """
 
         self._instrument.change_status(CollageStatus.INIT)
     
@@ -340,15 +406,41 @@ class MessageLayer(object):
         raise MessageLayerError('Could not receive message using available tasks')
         
 class Task(object):
-    """A type for Collage tasks. This is used in the task database."""
+    """Tasks used to upload and download vectors on UGC hosts.
+    
+    You will need to implement a bunch of these for your application.
+
+    """
 
     def send(self, id, vector):
+        """Upload a vector using this task.
+
+        The vector should be embedded with data for the message
+        with the given identifier. For example, this method might
+        upload pictures to a Flickr account.
+
+        """
         raise NotImplementedError
 
     def receive(self, id):
+        """Download vectors using this task.
+
+        The task will search for vectors containing data for the given identier.
+        For example, it might search Flickr for "blue flowers" and download
+        all the search results.
+
+        """
         raise NotImplementedError
 
     def can_embed(self, id, vector):
+        """Decide whether a particular vector can be used with this task.
+
+        Not all vectors can be used with a given task. For example, if this task
+        searches for pictures of "blue flowers", then this method should only
+        accept vectors that have blue flowers. This can be enforced with
+        properties of the vectors.
+
+        """
         raise NotImplementedError
 
     def _hash(self):
@@ -358,7 +450,12 @@ class Task(object):
         return cmp(self._hash(), other._hash())
 
 class TaskDatabase(object):
-    """An implementation of Collage's task database."""
+    """An implementation of Collage's task database.
+    
+    This class is used by the MessageLayer. You shouldn't need
+    to instantiate this class yourself.
+    
+    """
 
     class MI(str):
         def _hash(self):
