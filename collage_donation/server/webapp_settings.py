@@ -66,7 +66,7 @@ MIDDLEWARE_CLASSES = (
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.file'
 
-ROOT_URLCONF = 'collage_donation.server.urls'
+ROOT_URLCONF = 'collage_donation.server.webapp_urls'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".

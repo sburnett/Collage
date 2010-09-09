@@ -4,8 +4,8 @@ import os.path
 
 from django.views.static import serve
 
-import collage_donation.client.flickr_web_client.views as views
-from collage_donation.client.flickr_web_client.settings import PROJECT_PATH
+import collage_donation.client.flickr_web_client.webapp_views as views
+from collage_donation.client.flickr_web_client.webapp_settings import PROJECT_PATH
 
 urlpatterns = patterns('',
         (r'^$', views.index),
