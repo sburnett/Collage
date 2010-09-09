@@ -16,7 +16,7 @@ setup(
         py_modules=['collage_apps.providers.flickr'
                    ,'collage_apps.providers.local'
                    ,'collage_apps.vectors.jpeg'
-                   ,'collage_apps.proxy.demo_proxy_client'
+                   ,'collage_apps.proxy.proxy_client'
                    ,'collage_apps.proxy.proxy_common'
                    ,'collage_apps.instruments'
                    ,'ez_setup'
