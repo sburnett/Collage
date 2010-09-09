@@ -1,3 +1,5 @@
+"""A variety of schemes for embedding messages inside tweets."""
+
 import base64
 
 from collage.vectorlayer import Vector, EncodingError

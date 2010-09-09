@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+"""Publish daily BBC news inside user-generated content.
+
+Photos are published on three venues:
+* On a centralized (i.e., dedicated) Flickr profile. We provide a
+  standard set of photos, and upload the same photos each day. This is reliable,
+  but very easy to block.
+* On the profiles of volunteers on Flickr. The photos are donated by
+  the (many?) volunteers and would presumably have been uploaded regardless of
+  Collage usage. Thus, they are harder to block, but also harder to find.
+* On a local content host (for testing only).
+
+"""
 
 from collage_donation.server.database import AppDatabase
 import datetime
@@ -20,6 +32,8 @@ from collage_apps.instruments import Timestamper
 import proxy_common as common
 
 def send_news_centralized(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    """Publish news inside stock photos on dedicated Flickr account."""
+
     database = AppDatabase(db_dir, 'proxy_centralized')
 
     tasks = [DonateTagPairFlickrTask(('nature', 'vacation'), database)]
@@ -35,6 +49,8 @@ def send_news_centralized(address, data, db_dir, tags, send_ratio, killswitch, e
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def send_news_community(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    """Publish news inside photos provided by community volunteers."""
+
     database = AppDatabase(db_dir, 'proxy_community')
 
     tag_pairs = [(a, b) for a in tags for b in tags if a < b]
@@ -51,6 +67,8 @@ def send_news_community(address, data, db_dir, tags, send_ratio, killswitch, est
     message_layer.send(address, data, send_ratio=send_ratio)
 
 def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, estimate_db):
+    """Publish news inside photos on a local content host, for testing."""
+
     database = AppDatabase(db_dir, 'proxy_local')
 
     tasks = [DonateDirectoryTask(local_dir, address, database)]
@@ -67,6 +85,8 @@ def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, es
 
 MAX_PAYLOAD_SIZE=32000
 def get_news(today):
+    """Fetch today's top news from the BBC mobile Web site."""
+
     urls = []
 
     pagedata = urllib.urlopen('http://www.bbc.co.uk/news/mobile').read()
@@ -105,6 +125,8 @@ def get_news(today):
     return payload
 
 def get_tags():
+    """Fetch the list of top tags on Flickr."""
+
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
     block = match.group(1)

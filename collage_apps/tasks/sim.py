@@ -1,3 +1,9 @@
+"""A simluated task, for performance evaluation.
+
+Don't use this.
+
+"""
+
 import random
 import os
 import os.path

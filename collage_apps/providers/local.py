@@ -1,3 +1,5 @@
+"""Read vectors from a local directory."""
+
 import os.path
 import random
 

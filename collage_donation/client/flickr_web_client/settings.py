@@ -1,4 +1,8 @@
-# Django settings for flickr_web_client project.
+"""Django settings for flickr_web_client.
+
+Feel free to adjust to your local environment.
+
+"""
 
 import os.path
 PROJECT_PATH = os.path.abspath(os.path.dirname(__file__))

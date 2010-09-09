@@ -1,3 +1,9 @@
+"""Provide a set of simulated vectors.
+
+Don't use this.
+
+"""
+
 import random
 
 from collage.vectorlayer import VectorProvider

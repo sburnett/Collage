@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-'''
-This application simulates a variety of other Collage applications, for
+"""
+This application can be used to simulate a variety of Collage applications, for
 performance evaluation.
-'''
+
+It isn't meant for use by end users. At all.
+
+"""
 
 import sys
 import os

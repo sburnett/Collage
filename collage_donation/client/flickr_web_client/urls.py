@@ -7,10 +7,6 @@ from django.views.static import serve
 import collage_donation.client.flickr_web_client.views as views
 from collage_donation.client.flickr_web_client.settings import PROJECT_PATH
 
-# Uncomment the next two lines to enable the admin:
-# from django.contrib import admin
-# admin.autodiscover()
-
 urlpatterns = patterns('',
         (r'^$', views.index),
         (r'^login$', views.login),

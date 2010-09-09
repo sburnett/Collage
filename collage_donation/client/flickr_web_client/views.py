@@ -1,3 +1,9 @@
+"""A Django Web application for donating Flickr photos to Collage.
+
+Users are authenticated using the Flickr API.
+
+"""
+
 import flickrapi
 import urllib
 import re
@@ -248,28 +254,3 @@ def callback(request):
     request.session['token'] = token
     request.session['userid'] = userid
     return HttpResponseRedirect('/')
-
-#def main():
-#    usage = 'usage: %s [options]'
-#    parser = OptionParser(usage=usage)
-#    parser.set_defaults(database='waiting_keys.sqlite')
-#    parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
-#    (options, args) = parser.parse_args()
-#
-#    global wait_db
-#    wait_db = options.database
-#
-#    if len(args) != 0:
-#        parser.error('Invalid argument')
-#
-#    get_latest_tags()
-#    
-#    cherrypy.config.update({'tools.sessions.on': True})
-#    config = { '/static':
-#                    { 'tools.staticdir.on' : True,
-#                      'tools.staticdir.dir': STATIC_DIR }
-#             }
-#    cherrypy.quickstart(FlickrWebClient(), config=config)
-#
-#if __name__ == '__main__':
-#    main()

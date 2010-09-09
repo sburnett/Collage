@@ -1,3 +1,9 @@
+"""Provide dummy tweets.
+
+Don't use this.
+
+"""
+
 from collage.vectorlayer import VectorProvider
 
 class UniformTweetProvider(VectorProvider):

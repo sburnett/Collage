@@ -1,4 +1,18 @@
 #!/usr/bin/env python
+"""A daemon for donating a directory of photos once per day.
+
+The photos are uploaded to a Flickr account, which must be authorized on the
+first invocation of the program. (Credentials are cached in the user's home
+directory.)
+
+Important: Photos will be tagged with some provided tags. All photos with those
+tags will be erased before uploading, so this could erase some photos
+unintentionally.
+
+After all the photos are uploaded, the program will sleep for 24 hours, then
+repeat the process.
+
+"""
 
 import os.path
 import os
@@ -29,10 +43,12 @@ def upload_photo(flickr, filename, title, description, tags):
     flickr.upload(filename=filename, title=title, description=description, tags=tags, callback=upload_progress)
 
 def delete_photos(flickr, tags):
+    """Delete all my photos with these tags."""
     for photo in flickr.walk(tag_mode='all', tags=','.join(tags), user_id='me'):
         flickr.photos_delete(photo_id=photo.get('id'))
 
 def need_to_upload(flickr, tags):
+    """Don't upload if photos with these tags were uploaded in the past day."""
     today = datetime.datetime.utcnow()
     out_of_date = False
     found_photo = False
@@ -84,8 +100,11 @@ def donate(flickr, filename, id, title, tags):
 def auth_flickr():
     """Authenticate with Flickr using our api key and secret.
 
-    The user will be prompted to authenticate using his
-    account if needed."""
+    The user will be prompted to authenticate using his account if needed. If
+    you want crediantials cached between sessions, make sure to run as the same
+    user.
+    
+    """
 
     api_key = '3219bff0c8e25adc61ca3845f1c810c5'
     api_secret = '7ed8aaed85fa15c6'

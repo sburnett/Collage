@@ -1,4 +1,4 @@
-# Django settings for simple_web project.
+"""Django settings for simple_web project. Adjust for your environment."""
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG

@@ -1,3 +1,5 @@
+"""Encode Collage messages inside JPEGs using OutGuess."""
+
 import subprocess
 import tempfile
 import base64

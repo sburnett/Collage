@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""Demo Collage application that reads news articles published by the server.
+
+We call this application a "proxy", because it could be used to serve any Web
+content.
+
+"""
 
 import threading
 import Queue
@@ -120,8 +126,8 @@ class FetchFrame(wx.Dialog):
 
         cancel_button = wx.Button(self, id=wx.ID_CANCEL)
         self.sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
-        self.Bind(wx.EVT_CLOSE, self.OnClose, self)
+        self.Bind(wx.EVT_BUTTON, self.on_cancel, cancel_button)
+        self.Bind(wx.EVT_CLOSE, self.on_close, self)
 
         self.SetAutoLayout(True)
         self.SetSizer(self.sizer)
@@ -134,25 +140,25 @@ class FetchFrame(wx.Dialog):
         self.thread.daemon = True
         self.thread.start()
 
-        Publisher().subscribe(self.updateStatus, 'status')
-        Publisher().subscribe(self.updateVector, 'vector')
-        Publisher().subscribe(self.updateChunk, 'chunk')
+        Publisher().subscribe(self.update_status, 'status')
+        Publisher().subscribe(self.update_vector, 'vector')
+        Publisher().subscribe(self.update_chunk, 'chunk')
 
         self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.OnTick, self.timer)
+        self.Bind(wx.EVT_TIMER, self.on_tick, self.timer)
         self.timer.Start(milliseconds=1000, oneShot=False)
 
-    def OnCancel(self, event):
+    def on_cancel(self, event):
         self.thread.close()
         self.EndModal(wx.CANCEL)
 
-    def OnClose(self, event):
+    def on_close(self, event):
         self.thread.close()
 
-    def updateStatus(self, msg):
+    def update_status(self, msg):
         self.status_label.SetLabel(msg.data)
 
-    def updateVector(self, msg):
+    def update_vector(self, msg):
         self.vectors_downloaded += 1
         self.cover_received += int(msg.data)
         if self.vectors_downloaded == 1:
@@ -162,7 +168,7 @@ class FetchFrame(wx.Dialog):
         if self.cover_received > 0:
             self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
 
-    def updateChunk(self, msg):
+    def update_chunk(self, msg):
         self.chunks_decoded += 1
         self.data_decoded += int(msg.data)
         if self.chunks_decoded == 1:
@@ -172,13 +178,13 @@ class FetchFrame(wx.Dialog):
         if self.cover_received > 0:
             self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
 
-    def OnTick(self, arg):
+    def on_tick(self, arg):
         if not self.thread.is_alive():
             self.data = self.thread.get_data()
             self.timer.Stop()
             self.EndModal(wx.OK)
 
-    def GetData(self):
+    def get_data(self):
         return self.data
 
 class OpenFrame(wx.Dialog):
@@ -202,9 +208,9 @@ class OpenFrame(wx.Dialog):
 
         self.control = wx.calendar.CalendarCtrl(self)
         self.sizer.Add(self.control, flag=wx.EXPAND)
-        self.Bind(wx.calendar.EVT_CALENDAR, self.OnOpen, self.control)
-        self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.OnChange, self.control)
-        self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.OnChange, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR, self.on_open, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.on_change, self.control)
+        self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.on_change, self.control)
         
         button_panel = wx.Panel(self)
         self.sizer.Add(button_panel, flag=wx.EXPAND)
@@ -213,11 +219,11 @@ class OpenFrame(wx.Dialog):
 
         cancel_button = wx.Button(button_panel, id=wx.ID_CANCEL)
         panel_sizer.Add(cancel_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnCancel, cancel_button)
+        self.Bind(wx.EVT_BUTTON, self.on_cancel, cancel_button)
 
         self.open_button = wx.Button(button_panel, id=wx.ID_OPEN)
         panel_sizer.Add(self.open_button, flag=wx.ALIGN_RIGHT)
-        self.Bind(wx.EVT_BUTTON, self.OnOpen, self.open_button)
+        self.Bind(wx.EVT_BUTTON, self.on_open, self.open_button)
 
         button_panel.SetSizer(panel_sizer)
         button_panel.SetAutoLayout(1)
@@ -226,9 +232,9 @@ class OpenFrame(wx.Dialog):
         self.SetAutoLayout(1)
         self.sizer.Fit(self)
 
-        self.OnChange(None)
+        self.on_change(None)
 
-    def OnOpen(self, event):
+    def on_open(self, event):
         date = self.control.PyGetDate()
         if date is None:
             return
@@ -243,7 +249,7 @@ class OpenFrame(wx.Dialog):
         else:
             self.EndModal(wx.OK)
 
-    def OnChange(self, event):
+    def on_change(self, event):
         for i in range(1, 32):
             self.control.ResetAttr(i)
             unavail_style = wx.calendar.CalendarDateAttr(colText='#a0a0a0')
@@ -256,10 +262,10 @@ class OpenFrame(wx.Dialog):
 
         self.control.Refresh()
 
-    def GetAddress(self):
+    def get_address(self):
         return self.address
 
-    def OnCancel(self, event):
+    def on_cancel(self, event):
         self.EndModal(wx.CANCEL)
 
 welcome_page_source = '''<h1>Collage News Reader</h1>
@@ -279,7 +285,7 @@ class ProxyFrame(wx.Frame):
         self.database = Database(db_filename)
         self.local_dir = local_dir
 
-        my_lists = ['centralized', 'community', 'local']
+        my_lists = ['centralized', 'community', 'local', 'picasa']
         task_lists = self.database.get_task_lists()
         for task_list in task_lists:
             if task_list not in my_lists:
@@ -290,19 +296,20 @@ class ProxyFrame(wx.Frame):
         self.database.set_loaded_task_modules('centralized', ['flickr_user'])
         self.database.set_loaded_task_modules('community', ['flickr_new'])
         self.database.set_loaded_task_modules('local', ['local'])
+        self.database.set_loaded_task_modules('picasa', ['picasa_user'])
 
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_ANY, '&Fetch latest news...', 'Fetch the latest news')
-        self.Bind(wx.EVT_MENU, self.OnFetch, item)
+        self.Bind(wx.EVT_MENU, self.on_fetch, item)
         item = filemenu.Append(wx.ID_OPEN, '&Open old news...', 'View censored documents')
-        self.Bind(wx.EVT_MENU, self.OnOpen, item)
+        self.Bind(wx.EVT_MENU, self.on_open, item)
         #item = filemenu.Append(wx.ID_ANY, '&Update task database', 'Fetch the latest task database')
         #self.Bind(wx.EVT_MENU, self.OnUpdate, item)
         #item = filemenu.Append(wx.ID_ANY, '&Task modules', 'Select task modules')
         #self.Bind(wx.EVT_MENU, self.OnModules, item)
         filemenu.AppendSeparator()
         item = filemenu.Append(wx.ID_EXIT, 'E&xit', 'Terminate the program')
-        self.Bind(wx.EVT_MENU, self.OnExit, item)
+        self.Bind(wx.EVT_MENU, self.on_exit, item)
 
         menubar = wx.MenuBar()
         menubar.Append(filemenu, '&File')
@@ -311,25 +318,25 @@ class ProxyFrame(wx.Frame):
         self.control = wx.html.HtmlWindow(self)
         self.control.SetPage(welcome_page_source)
         self.showing_welcome_page = True
-        self.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.OnLinkClick, self.control)
+        self.Bind(wx.html.EVT_HTML_LINK_CLICKED, self.on_link_click, self.control)
 
         self.Show(True)
 
-    def OnOpen(self, event):
+    def on_open(self, event):
         dlg = OpenFrame(self, self.db_filename)
         result = dlg.ShowModal()
         dlg.Destroy()
         if result == wx.OK:
-            self.Open(dlg.GetAddress())
+            self.open(dlg.get_address())
 
-    def Open(self, address):
+    def open(self, address):
         contents = self.database.get_file(address)
         if contents is not None:
             self.SetTitle('%s - %s' % (address, self.my_title))
             self.control.SetPage(contents)
             self.showing_welcome_page = False
 
-    def OnFetch(self, event):
+    def on_fetch(self, event):
         address = common.format_address(datetime.datetime.utcnow())
 
         if not self.database.have_address(address):
@@ -338,6 +345,7 @@ class ProxyFrame(wx.Frame):
             descriptions['Slowely and with more deniability'] = 'community'
             if self.local_dir is not None:
                 descriptions['With a local testing directory'] = 'local'
+            descriptions['New Picasa plugin'] = 'picasa'
 
             dlg = wx.SingleChoiceDialog(self, 'How do you want to fetch the news?\n\nThere is a tradeoff between deniability and speed:\nThe faster you download the news, the it will be easier\nfor a censor to identify your activity.', 'Task modules', sorted(descriptions.keys()))
             if dlg.ShowModal() != wx.ID_OK:
@@ -347,16 +355,16 @@ class ProxyFrame(wx.Frame):
             dlg.Destroy()
 
             self.database.set_active_task_list(task_list)
-            self.UpdateTaskList(task_list)
+            self.update_task_list(task_list)
 
-            self.Fetch(address)
+            self.fetch(address)
 
-        self.Open(address)
+        self.open(address)
 
-    def Fetch(self, address):
+    def fetch(self, address):
         dlg = FetchFrame(self, self.db_filename, address)
         rc = dlg.ShowModal()
-        data = dlg.GetData()
+        data = dlg.get_data()
         if rc == wx.OK:
             if data is None:
                 dlg = wx.MessageDialog(self,
@@ -368,7 +376,7 @@ class ProxyFrame(wx.Frame):
             else:
                 self.database.add_file(address, data)
 
-    def UpdateTaskList(self, task_list):
+    def update_task_list(self, task_list):
         last_update = self.database.get_task_list_updated(task_list)
         if last_update is not None \
                 and datetime.datetime.utcnow() - last_update < self.my_min_update_time:
@@ -390,21 +398,23 @@ class ProxyFrame(wx.Frame):
             tasks.append(('flickr_new', 'WebTagPairFlickrTask(driver, %s)' % repr(('nature', 'vacation'))))
         elif task_list == 'local':
             tasks.append(('local', 'ReadDirectory(%s)' % repr(self.local_dir)))
+        elif task_list == 'picasa':
+            tasks.append(('picasa', 'PicasaUserTask(driver, %s)' % repr('srburnet')))
 
         self.database.delete_tasks(task_list)
         self.database.add_tasks(task_list, tasks)
         self.database.updated_task_list(task_list)
 
-    def OnExit(self, event):
+    def on_exit(self, event):
         self.Close(True)
 
-    def OnLinkClick(self, event):
+    def on_link_click(self, event):
         if self.showing_welcome_page:
             href = event.GetLinkInfo().GetHref()
             if href == 'fetch':
-                self.OnFetch(event)
+                self.on_fetch(event)
             elif href == 'open':
-                self.OnOpen(event)
+                self.on_open(event)
             else:
                 webbrowser.open(href)
         else:
