@@ -21,14 +21,16 @@ import random
 from math import log, ceil
 import bz2
 import math
-from queue import Queue, Empty
-from threading import Event
+from Queue import Queue, Empty
+from threading import Event, Thread
 
 import coder
 import vectorlayer
 from instrument import CollageStatus
 
 DISABLE_COMPRESSION = False
+
+import pdb
 
 class MessageLayerError(Exception):
     """Raised when the message layer fails to send or receive a message."""
@@ -199,6 +201,9 @@ class MessageLayer(object):
                 except vectorlayer.EncodingError:
                     raise vectorlayer.EncodingError
 
+                if encoded_vector is None:
+                    pdb.set_trace()
+
                 return (len(ciphertext), encoded_vector)
 
             try:
@@ -245,6 +250,7 @@ class MessageLayer(object):
                     lower_bound = current_size
 
             if coded_vector is not None:
+                pdb.set_trace()
                 vector_queue.put((cover_vector, coded_vector))
             else:
                 self._vector_provider.repurpose_vector(cover_vector)
@@ -289,7 +295,7 @@ class MessageLayer(object):
 
         vector_queue = Queue(4)
         kill_switch = Event()
-        encoding_thread = Thread(target=self._encode_vectors, (vector_queue, kill_switch, identifier, key, data_len, encoder, tasks))
+        encoding_thread = Thread(target=self._encode_vectors, args=(vector_queue, kill_switch, identifier, key, data_len, encoder, tasks))
         encoding_thread.start()
 
         while True:
@@ -309,12 +315,12 @@ class MessageLayer(object):
                         break
 
             if coded_vector is None:
-                throw MessageLayerError('Unable to acquire enough vectors')
+                raise MessageLayerError('Unable to acquire enough vectors')
 
-            try:
-                coded_vector.record_estimate(current_size)
-            except AttributeError:
-                pass
+            #try:
+            #    coded_vector.record_estimate(current_size)
+            #except AttributeError:
+            #    pass
 
             print 'Uploading photo with %d encoded bytes' % (current_len,)
             print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
