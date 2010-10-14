@@ -41,7 +41,7 @@ class DownloadThread(threading.Thread):
         self.db_filename = db_filename
         self.address = address
         self.data = None
-    
+
     def run(self):
         self.driver = WebDriver()
 
@@ -211,7 +211,7 @@ class OpenFrame(wx.Dialog):
         self.Bind(wx.calendar.EVT_CALENDAR, self.on_open, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_MONTH, self.on_change, self.control)
         self.Bind(wx.calendar.EVT_CALENDAR_YEAR, self.on_change, self.control)
-        
+
         button_panel = wx.Panel(self)
         self.sizer.Add(button_panel, flag=wx.EXPAND)
         panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -541,7 +541,7 @@ class Database(object):
 
     def get_active_task_list(self):
         cur = self.conn.execute('SELECT name FROM task_lists WHERE active = 1')
-            
+
         row = cur.fetchone()
 
         assert cur.fetchone() is None     # Make sure there is exactly one active task
