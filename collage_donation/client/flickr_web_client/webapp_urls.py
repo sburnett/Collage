@@ -8,7 +8,7 @@ import collage_donation.client.flickr_web_client.webapp_views as views
 from collage_donation.client.flickr_web_client.webapp_settings import PROJECT_PATH
 
 urlpatterns = patterns('',
-        (r'^$', views.index),
+        (r'^$', views.login),
         (r'^login$', views.login),
         (r'^logout$', views.logout),
         (r'^upload$', views.upload),

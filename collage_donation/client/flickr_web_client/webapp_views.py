@@ -253,4 +253,4 @@ def callback(request):
 
     request.session['token'] = token
     request.session['userid'] = userid
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect('/upload')
