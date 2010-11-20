@@ -258,7 +258,8 @@ class CleanupDatabase(DonationDatabase):
         to be uploaded without embedded content."""
 
         cur = self._conn.execute('''SELECT rowid,key FROM vectors
-                                    WHERE expiration < CURRENT_TIMESTAMP''')
+                                    WHERE strftime('%s', expiration)
+                                          < strftime('%s', current_timestamp)''')
 
         for row in cur:
             self._conn.execute('''UPDATE vectors SET done = 1
