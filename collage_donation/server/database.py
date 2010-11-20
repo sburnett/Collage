@@ -23,6 +23,7 @@ import sys
 import random
 import time
 import datetime
+import threading
 
 import pdb
 
@@ -39,24 +40,34 @@ class DonationDatabase(object):
         if not os.path.isdir(db_dir):
             raise OSError('"%s" is not a directory' % db_dir)
 
-        self._conn = sqlite3.connect(os.path.join(db_dir, db_name))
-        self._conn.row_factory = sqlite3.Row
-
-        self._conn.execute('''CREATE TABLE IF NOT EXISTS applications
+        self._filename = os.path.join(db_dir, db_name)
+        conn = self._get_conn()
+        
+        conn.execute('''CREATE TABLE IF NOT EXISTS applications
                               (name TEXT PRIMARY KEY)''')
-        self._conn.execute('''CREATE TABLE IF NOT EXISTS vectors
+        conn.execute('''CREATE TABLE IF NOT EXISTS vectors
                               (application REFERENCES applications (name),
                                expiration TEXT,
                                key TEXT,
                                done INTEGER(1))''')
-        self._conn.execute('''CREATE TABLE IF NOT EXISTS metadata
+        conn.execute('''CREATE TABLE IF NOT EXISTS metadata
                               (vector_id REFERENCES vectors (rowid),
                                key TEXT,
                                value TEXT)''')
 
         self._vector_dir = db_dir
 
-        self._conn.commit()
+        conn.commit()
+
+    def _get_conn(self):
+        this_thread = threading.current_thread()
+        try:
+            return this_thread.proxy_database_connection
+        except AttributeError:
+            conn = sqlite3.connect(self._filename, detect_types=sqlite3.PARSE_COLNAMES)
+            conn.row_factory = sqlite3.Row
+            this_thread.proxy_database_connection = conn
+            return conn
 
     def get_filename(self, key):
         """For a given key, return the name of the file
@@ -74,7 +85,8 @@ class DonaterDatabase(DonationDatabase):
            then it is deleted from disk. The caller is given back a
            random key, which must be given to collect the vector."""
 
-        cur = self._conn.execute('''SELECT name FROM applications WHERE name = ?''', (application,))
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT name FROM applications WHERE name = ?''', (application,))
         if cur.fetchone() is None:
             return 'Invalid application name: %s' % application
 
@@ -84,41 +96,43 @@ class DonaterDatabase(DonationDatabase):
 
         open(self.get_filename(secretkey), 'w').write(data)
 
-        cur = self._conn.execute('''INSERT INTO vectors
+        cur = conn.execute('''INSERT INTO vectors
                                     (application, expiration, key, done)
                                     VALUES (?, ?, ?, ?)''',
                                 (application, expire_time, secretkey, 0))
         rowid = cur.lastrowid
 
         for (key, value) in attributes:
-            self._conn.execute('''INSERT INTO metadata
+            conn.execute('''INSERT INTO metadata
                                   (vector_id, key, value)
                                   VALUES (?, ?, ?)''',
                               (rowid, key, value))
         
-        self._conn.commit()
+        conn.commit()
 
         return secretkey
 
     def update_attributes(self, key, value, new_key, new_value):
-        cur = self._conn.execute('''SELECT vector_id FROM metadata
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT vector_id FROM metadata
                                     WHERE key = ? AND value = ?''',
                                     (key, value))
         for row in cur:
-            self._conn.execute('''DELETE FROM metadata
+            conn.execute('''DELETE FROM metadata
                                   WHERE vector_id = ?
                                   AND key = ?''',
                                (row['vector_id'], new_key))
-            self._conn.execute('''INSERT INTO metadata
+            conn.execute('''INSERT INTO metadata
                                   (vector_id, key, value)
                                   VALUES (?, ?, ?)''',
                                (row['vector_id'], new_key, new_value))
-        self._conn.commit()
+        conn.commit()
 
     def collect(self, key):
         """Retrieve a vector, iff it has been embedded with data."""
 
-        cur = self._conn.execute('''SELECT rowid FROM vectors
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT rowid FROM vectors
                                     WHERE key = ?
                                     AND done = 1''',
                                  (key,))
@@ -136,7 +150,8 @@ class UploaderDatabase(DonationDatabase):
         """Return a list of vectors that are ready for to be
         uploaded, and are compatible with all of a set of attributes."""
         
-        cur = self._conn.execute('''SELECT rowid FROM vectors
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT rowid FROM vectors
                                     WHERE done = 1''')
         vec_sec = set()
         for row in cur:
@@ -146,7 +161,7 @@ class UploaderDatabase(DonationDatabase):
 
         for (key, value) in attributes:
             vec_set = set()
-            cur = self._conn.execute('''SELECT vector_id FROM metadata,vectors
+            cur = conn.execute('''SELECT vector_id FROM metadata,vectors
                                         WHERE metadata.key = ?
                                         AND value = ?
                                         AND done = 1''',
@@ -158,7 +173,7 @@ class UploaderDatabase(DonationDatabase):
 
         keys = []
         for rowid in reduce(lambda a, b: a & b, vector_ids):
-            cur = self._conn.execute("""SELECT key FROM vectors
+            cur = conn.execute("""SELECT key FROM vectors
                                         WHERE rowid = ?""",
                                      (rowid,))
             row = cur.fetchone()
@@ -171,7 +186,8 @@ class UploaderDatabase(DonationDatabase):
     def get_attributes(self, key):
         attrs = []
 
-        cur = self._conn.execute('''SELECT metadata.key,value
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT metadata.key,value
                                     FROM metadata,vectors
                                     WHERE vector_id = vectors.rowid
                                     AND vectors.key = ?''',
@@ -184,21 +200,22 @@ class UploaderDatabase(DonationDatabase):
     def delete(self, key):
         """Erase vector matching a key."""
 
-        row = self._conn.execute('''SELECT rowid FROM vectors
+        conn = self._get_conn()
+        row = conn.execute('''SELECT rowid FROM vectors
                                     WHERE key = ?''', (key,)).fetchone()
         if row is None:
             return
 
-        self._conn.execute('''DELETE FROM metadata
+        conn.execute('''DELETE FROM metadata
                               WHERE vector_id = ?''', (row['rowid'],))
-        self._conn.execute('''DELETE FROM vectors
+        conn.execute('''DELETE FROM vectors
                               WHERE rowid = ?''', (row['rowid'],))
         try:
             os.unlink(self.get_filename(key))
         except OSError:
             pass
 
-        self._conn.commit()
+        conn.commit()
 
 class AppDatabase(DonationDatabase):
     def __init__(self, db_dir, application):
@@ -210,20 +227,23 @@ class AppDatabase(DonationDatabase):
     def register_application(self, name):
         """Add a new application name if it doesn't already exist."""
 
-        self._conn.execute('INSERT OR IGNORE INTO applications (name) VALUES (?)', (name,))
-        self._conn.commit()
+        conn = self._get_conn()
+        conn.execute('INSERT OR IGNORE INTO applications (name) VALUES (?)', (name,))
+        conn.commit()
 
     def unregister_application(self, name):
         """Delete an application name."""
 
-        self._conn.execute('DELETE FROM applications WHERE name = ?', (name,))
-        self._conn.commit()
+        conn = self._get_conn()
+        conn.execute('DELETE FROM applications WHERE name = ?', (name,))
+        conn.commit()
 
     def find_vectors(self, attributes):
         """Return a list of vectors that are ready for to be
         encoded, and are compatible with all of a set of attributes."""
         
-        cur = self._conn.execute('''SELECT rowid FROM vectors
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT rowid FROM vectors
                                     WHERE done = 0''')
         vec_sec = set()
         for row in cur:
@@ -233,7 +253,7 @@ class AppDatabase(DonationDatabase):
 
         for (key, value) in attributes:
             vec_set = set()
-            cur = self._conn.execute('''SELECT vector_id FROM metadata,vectors
+            cur = conn.execute('''SELECT vector_id FROM metadata,vectors
                                         WHERE metadata.key = ?
                                         AND value = ?
                                         AND done = 0
@@ -246,7 +266,7 @@ class AppDatabase(DonationDatabase):
 
         keys = []
         for rowid in reduce(lambda a, b: a & b, vector_ids):
-            cur = self._conn.execute("""SELECT key FROM vectors
+            cur = conn.execute("""SELECT key FROM vectors
                                         WHERE rowid = ?""",
                                      (rowid,))
             row = cur.fetchone()
@@ -260,11 +280,12 @@ class AppDatabase(DonationDatabase):
         """Notify the database that a given vector is ready has
         been encoded with data and is thus ready for collection."""
 
-        self._conn.execute('''UPDATE vectors
+        conn = self._get_conn()
+        conn.execute('''UPDATE vectors
                               SET done = 1
                               WHERE key = ?''',
                            (key,))
-        self._conn.commit()
+        conn.commit()
 
 class CleanupDatabase(DonationDatabase):
     def __init__(self, db_dir):
@@ -275,21 +296,22 @@ class CleanupDatabase(DonationDatabase):
         as "done", so that they can be returned to their owners
         to be uploaded without embedded content."""
 
-        cur = self._conn.execute('''SELECT rowid,key FROM vectors
+        conn = self._get_conn()
+        cur = conn.execute('''SELECT rowid,key FROM vectors
                                     WHERE strftime('%s', expiration)
-                                          < strftime('%s', current_timestamp)''')
+                                        < strftime('%s', current_timestamp)''')
 
         for row in cur:
-            self._conn.execute('''UPDATE vectors SET done = 1
+            conn.execute('''UPDATE vectors SET done = 1
                                   WHERE rowid = ?''', (row['rowid'],))
 
-            #self._conn.execute('''DELETE FROM metadata
+            #conn.execute('''DELETE FROM metadata
             #                      WHERE vector_id = ?''', (row['rowid'],))
-            #self._conn.execute('''DELETE FROM vectors
+            #conn.execute('''DELETE FROM vectors
             #                      WHERE rowid = ?''', (row['rowid'],))
             #try:
             #    os.unlink(self.get_filename(row['key']))
             #except OSError:
             #    pass
 
-        self._conn.commit()
+        conn.commit()

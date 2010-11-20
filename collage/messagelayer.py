@@ -21,12 +21,16 @@ import random
 from math import log, ceil
 import bz2
 import math
+from Queue import Queue, Empty
+from threading import Event, Thread
 
 import coder
 import vectorlayer
 from instrument import CollageStatus
 
 DISABLE_COMPRESSION = False
+
+import pdb
 
 class MessageLayerError(Exception):
     """Raised when the message layer fails to send or receive a message."""
@@ -167,52 +171,8 @@ class MessageLayer(object):
                                   compressed_blocks_buf)
         return payload
 
-    def send(self, identifier, data, num_vectors=0, send_ratio=1):
-        """Send a message with an associated identifier.
-        
-        The same identifier must be used by the receiver. It is
-        the application's responsibility to make sure the receiver
-        knows the identifier.
-        
-        Roughly, this method stores the message inside vectors
-        and uploads them to user-generated content hosts. There
-        are two ways of limiting how many vectors are uploaded:
-        * Specifying a hard limit on the number of vectors (num_vectors).
-        * Specifying how many message blocks should be uploaded (send_ratio). A
-          value of 1 means "send exactly enough message blocks to reconstruct
-          the message", a value of 2 means "send twice as many blocks
-          as required", etc.
-
-        """
-
-        self._instrument.change_status(CollageStatus.INIT)
-    
-        tasks = self._task_database.lookup(identifier)
-        print 'Sending using tasks:'
-        for task in tasks:
-            print task
-
-        formatted_data = self._format_message_data(data)
-        data_len = len(formatted_data)+1
-        encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
-
-        key = hashlib.sha1(identifier).digest()
-
-        if num_vectors > 0:
-            vector_counter = 0
-        else:
-            bytes_sent = 0
-            total_bytes = data_len*send_ratio
-            print 'Will upload %d bytes' % total_bytes
-
-        while True:
-            if num_vectors > 0:
-                if vector_counter >= num_vectors:
-                    break
-                vector_counter += 1
-            elif bytes_sent >= total_bytes:
-                break
-
+    def _encode_vectors(self, vector_queue, kill_switch, identifier, key, data_len, encoder, tasks):
+        while not kill_switch.is_set():
             vector_result = self._vector_provider.get_vector(tasks)
             if vector_result is None:
                 self._instrument.change_status(CollageStatus.FAILURE)
@@ -240,6 +200,9 @@ class MessageLayer(object):
                     print 'GOTVECTOR: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
                 except vectorlayer.EncodingError:
                     raise vectorlayer.EncodingError
+
+                if encoded_vector is None:
+                    pdb.set_trace()
 
                 return (len(ciphertext), encoded_vector)
 
@@ -286,24 +249,99 @@ class MessageLayer(object):
                 else:
                     lower_bound = current_size
 
-            if coded_vector:
-                try:
-                    cover_vector.record_estimate(current_size)
-                except AttributeError:
-                    pass
-
-                print 'Uploading photo with %d encoded bytes' % (current_len,)
-                print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
-                print 'To upload length: %d' % len(coded_vector._data)
-                self._instrument.change_status(CollageStatus.UPLOADING)
-                task.send(key, coded_vector)
-                self._instrument.upload_vector(len(coded_vector.get_data()))
-                self._instrument.upload_chunks(current_len)
-                if num_vectors == 0:
-                    bytes_sent += current_len
-                    print 'We have sent %d of %d bytes' % (bytes_sent, total_bytes)
+            if coded_vector is not None:
+                pdb.set_trace()
+                vector_queue.put((cover_vector, coded_vector))
             else:
                 self._vector_provider.repurpose_vector(cover_vector)
+
+    def send(self, identifier, data, num_vectors=0, send_ratio=1):
+        """Send a message with an associated identifier.
+        
+        The same identifier must be used by the receiver. It is
+        the application's responsibility to make sure the receiver
+        knows the identifier.
+        
+        Roughly, this method stores the message inside vectors
+        and uploads them to user-generated content hosts. There
+        are two ways of limiting how many vectors are uploaded:
+        * Specifying a hard limit on the number of vectors (num_vectors).
+        * Specifying how many message blocks should be uploaded (send_ratio). A
+          value of 1 means "send exactly enough message blocks to reconstruct
+          the message", a value of 2 means "send twice as many blocks
+          as required", etc.
+
+        """
+
+        self._instrument.change_status(CollageStatus.INIT)
+    
+        tasks = self._task_database.lookup(identifier)
+        print 'Sending using tasks:'
+        for task in tasks:
+            print task
+
+        formatted_data = self._format_message_data(data)
+        data_len = len(formatted_data)+1
+        encoder = coder.Encoder(formatted_data, self._block_size, self._block_id_bytes)
+
+        key = hashlib.sha1(identifier).digest()
+
+        if num_vectors > 0:
+            vector_counter = 0
+        else:
+            bytes_sent = 0
+            total_bytes = data_len*send_ratio
+            print 'Will upload %d bytes' % total_bytes
+
+        vector_queue = Queue(4)
+        kill_switch = Event()
+        encoding_thread = Thread(target=self._encode_vectors, args=(vector_queue, kill_switch, identifier, key, data_len, encoder, tasks))
+        encoding_thread.start()
+
+        while True:
+            if num_vectors > 0:
+                if vector_counter >= num_vectors:
+                    break
+                vector_counter += 1
+            elif bytes_sent >= total_bytes:
+                break
+
+            coded_vector = None
+            while coded_vector is None:
+                try:
+                    (_, coded_vector) = vector_queue.get(timeout=1)
+                except Empty:
+                    if not encoding_thread.is_alive():
+                        break
+
+            if coded_vector is None:
+                raise MessageLayerError('Unable to acquire enough vectors')
+
+            #try:
+            #    coded_vector.record_estimate(current_size)
+            #except AttributeError:
+            #    pass
+
+            print 'Uploading photo with %d encoded bytes' % (current_len,)
+            print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
+            print 'To upload length: %d' % len(coded_vector._data)
+            self._instrument.change_status(CollageStatus.UPLOADING)
+            task.send(key, coded_vector)
+            self._instrument.upload_vector(len(coded_vector.get_data()))
+            self._instrument.upload_chunks(current_len)
+            if num_vectors == 0:
+                bytes_sent += current_len
+                print 'We have sent %d of %d bytes' % (bytes_sent, total_bytes)
+
+        kill_switch.set()
+        encoding_thread.join()
+
+        try:
+            while True:
+                (cover_vector, _) = vector_queue.get_nowait()
+                self._vector_provider.repurpose_vector(cover_vector)
+        except Empty:
+            pass
 
         self._instrument.change_status(CollageStatus.SUCCESS)
 
