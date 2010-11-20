@@ -1,3 +1,21 @@
+"""A database of donated vectors.
+
+This database tracks the status of vectors donated by community volunteers. 
+The following entities read and write to this database:
+* The donation clients. This is an application that receives donations from users.
+  For example, we provide both a Web application and desktop application that
+  Flickr users can use to donate their photos. These clients access the database
+  via RPC. (See urls.py)
+* The application backend. After the donation clients provide raw, unembedded
+  vectors the applications find these vectors and encode them with data. After,
+  these vectors get sent back to the clients. (Or, more accurately, the clients
+  poll for completed vectors.)
+* The garbage collector. Vectors that have been in the database too long are
+  expired and sent back to the clients unmodified. Eventually they are purged
+  from the database to conserve space.
+
+"""
+
 import sqlite3
 import os.path
 import os

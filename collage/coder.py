@@ -1,3 +1,9 @@
+"""An implementation of Online Coding, a rateless erasure coding scheme.
+
+See the paper "Online Codes" by Petar Maymounkov.
+
+"""
+
 import math
 import random
 import struct
@@ -90,8 +96,6 @@ class Encoder(object):
         return block
 
 class Decoder(object):
-    """An implementation of Online Codes, for decoding"""
-
     def __init__(self, block_size, id_bytes, message_size):
         self.rand = random.Random()
         self.block_size = block_size - id_bytes

@@ -1,3 +1,9 @@
+"""Simluated vector, capable of storing specified amounts of data.
+
+This is meant for testing. Don't use it in real applications.
+
+"""
+
 import struct
 
 from collage.vectorlayer import Vector, EncodingError

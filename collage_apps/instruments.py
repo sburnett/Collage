@@ -10,6 +10,8 @@ except ImportError:
 import collage.instrument as instrument
 
 class Timestamper(instrument.Instrument):
+    """For each logging event, write a tiimestamped message to a logfile."""
+
     def stamp(self, ty, message):
         sys.stderr.write('%f %s %s\n' % (time.time(), ty, message))
 
@@ -23,6 +25,12 @@ class Timestamper(instrument.Instrument):
         self.stamp('chunks', num_bytes)
 
 class Logger(instrument.Instrument):
+    """For each logging event, post a wxPython event.
+
+    Used in wxPython applications, like our proxy client.
+
+    """
+
     def __init__(self, queue):
         self._queue = queue
 

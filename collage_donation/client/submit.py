@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""A command-line application for submitting vector donations.
+
+The donated vector is read from stdin. A unique key is written
+to stdout, which should be used to poll for completion. (See
+retrieve.py)
+
+"""
 
 import sys
 from optparse import OptionParser

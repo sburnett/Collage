@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""Simple donation client, using Tk.
+
+This is out of date, and probably doesn't work.
+
+"""
 
 import Tkinter
 from tkFileDialog import askopenfilename

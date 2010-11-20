@@ -1,5 +1,3 @@
-# Django settings for flickr_web_client project.
-
 import os.path
 PROJECT_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -8,7 +6,6 @@ TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
     ('Sam Burnett', 'sburnett@cc.gatech.edu'),
-    # ('Your Name', 'your_email@domain.com'),
 )
 
 MANAGERS = ADMINS
@@ -52,7 +49,7 @@ MEDIA_URL = ''
 ADMIN_MEDIA_PREFIX = '/media/'
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = '#-!jv!oiubvd(xq6b99+g7&1@w*rr0!hrnoer_o6#ba8wa632)'
+SECRET_KEY = '#-!jv!oiubvd(xq6b99+g7&1@w*rr0!hrnoer_o6#ba8wa632('
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
@@ -69,18 +66,19 @@ MIDDLEWARE_CLASSES = (
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.file'
 
-ROOT_URLCONF = 'collage_donation.client.flickr_web_client.urls'
+ROOT_URLCONF = 'collage_donation.server.webapp_urls'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
-    os.path.join(PROJECT_PATH, 'templates'),
-    os.path.join(os.path.abspath(os.path.curdir)),
+#    os.path.join(PROJECT_PATH, 'templates'),
+    #os.path.join(os.path.abspath(os.path.curdir)),
 )
 
 INSTALLED_APPS = (
-    'django.contrib.sessions',
+    #'django.contrib.sessions',
 )
 
-WAITING_DB = 'waiting_keys.sqlite'
+DB_DIR = os.path.abspath(os.path.join(os.path.curdir, 'vectors'))
+#WAITING_DB = 'waiting_keys.sqlite'

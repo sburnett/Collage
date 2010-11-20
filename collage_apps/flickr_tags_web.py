@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-'''
-This Collage application implements a simple proxy server based on Flickr.
+"""
+This Collage application implements simple messaging hosted on Flickr.
 
-The task scheme used for this proxy is "direct", since files are uploaded and
-downloaded without regard to deniability.
-'''
+The tasks download photos from Flickr by performing keyword searches. It
+downloads the photos by driving an instance of Firefox using Selenium, so it's
+more deniable than using the Flickr API. It's also a lot slower.
+
+"""
 
 import sys
 from optparse import OptionParser
