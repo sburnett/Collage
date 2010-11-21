@@ -36,7 +36,7 @@
                     showMessage: function(message) { },
                     template: '<div class="qq-uploader">' +
                               '<div class="qq-upload-drop-area"><span>Drop photos here to upload</span></div>' +
-                              '<div class="qq-upload-button">Upload photos</div>' +
+                              '<div class="qq-upload-button">Click here to select photos</div>' +
                               '<ul class="qq-upload-list"></ul>' +
                               '</div>',
                     messages: {
