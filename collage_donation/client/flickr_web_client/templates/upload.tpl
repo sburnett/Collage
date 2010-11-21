@@ -7,14 +7,11 @@
         <link rel="stylesheet" type="text/css" href="/static/default.css" />
         <link rel="stylesheet" type="text/css" href="/static/fileuploader.css" />
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-        
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/element/element-min.js"></script>
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/button/button-min.js"></script>
-        <script type="text/javascript" src="/static/fileuploader.js" />
 
-        <script type="text/javascript" src="/static/swfupload/swfupload.js"></script>
-        <script type="text/javascript" src="/static/swfupload.queue.js"></script>
         <script type="text/javascript" src="/static/utils.js"></script>
+        <script type="text/javascript" src="/static/fileuploader.js"></script>
         <script type="text/javascript">
             window.onload = function() {
                 var uploader = new qq.FileUploader({
