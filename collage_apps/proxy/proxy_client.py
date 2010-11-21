@@ -450,41 +450,29 @@ class Snippet(object):
 
 class Database(object):
     def __init__(self, filename):
-        self._filename = filename
+        self.conn = sqlite3.connect(filename, detect_types=sqlite3.PARSE_COLNAMES)
+        self.conn.row_factory = sqlite3.Row
+        self.conn.text_factory = str
 
-        conn = self._get_conn(self._filename)
-        conn.execute('''PRAGMA foreign_keys = ON''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS downloads
-                        (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS task_modules
-                        (name TEXT, task_list TEXT, FOREIGN KEY (task_list) REFERENCES task_lists (name))''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS tasks
-                        (module TEXT, task_list TEXT, command TEXT, FOREIGN KEY (task_list) REFERENCES task_lists (name))''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS task_lists
-                        (name TEXT PRIMARY KEY, active INTEGER, last_update TEXT)''')
-        conn.commit()
-
-    def _get_conn(self, filename):
-        this_thread = threading.current_thread()
-        try:
-            return this_thread.proxy_database_connection
-        except AttributeError:
-            conn = sqlite3.connect(filename, detect_types=sqlite3.PARSE_COLNAMES)
-            conn.row_factory = sqlite3.Row
-            conn.text_factory = str
-            this_thread.proxy_database_connection = conn
-            return conn
+        self.conn.execute('''PRAGMA foreign_keys = ON''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS downloads
+                             (address TEXT, contents TEXT, fetched DEFAULT CURRENT_TIMESTAMP)''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS task_modules
+                             (name TEXT, task_list TEXT, FOREIGN KEY (task_list) REFERENCES task_lists (name))''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS tasks
+                             (module TEXT, task_list TEXT, command TEXT, FOREIGN KEY (task_list) REFERENCES task_lists (name))''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS task_lists
+                             (name TEXT PRIMARY KEY, active INTEGER, last_update TEXT)''')
+        self.conn.commit()
 
     def add_file(self, address, contents):
-        conn = self._get_conn(self._filename)
-        conn.execute('''DELETE FROM downloads WHERE address = ?''', (address,))
-        conn.execute('''INSERT INTO downloads (address, contents)
+        self.conn.execute('''DELETE FROM downloads WHERE address = ?''', (address,))
+        self.conn.execute('''INSERT INTO downloads (address, contents)
                              VALUES (?, ?)''', (address, contents))
-        conn.commit()
+        self.conn.commit()
 
     def get_file(self, address):
-        conn = self._get_conn(self._filename)
-        row = conn.execute('''SELECT contents FROM downloads WHERE address = ?''',
+        row = self.conn.execute('''SELECT contents FROM downloads WHERE address = ?''',
                                 (address,)).fetchone()
         if row is None:
             return None
@@ -494,76 +482,65 @@ class Database(object):
     def get_addresses(self):
         addresses = {}
 
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT address,fetched FROM downloads')
+        cur = self.conn.execute('SELECT address,fetched FROM downloads')
         for row in cur:
             addresses[row['address']] = row['fetched']
 
         return addresses
 
     def have_address(self, address):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT rowid FROM downloads WHERE address = ?', (address,))
+        cur = self.conn.execute('SELECT rowid FROM downloads WHERE address = ?', (address,))
         return cur.fetchone() is not None
 
     def is_task_module_loaded(self, task_list, module):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('''SELECT name FROM task_modules
+        cur = self.conn.execute('''SELECT name FROM task_modules
                                    WHERE name = ?
                                    AND task_list = ?''',
                                 (module, task_list))
         return cur.fetchone() is not None
 
     def set_loaded_task_modules(self, task_list, modules):
-        conn = self._get_conn(self._filename)
-        conn.execute('DELETE FROM task_modules WHERE task_list = ?', (task_list,))
+        self.conn.execute('DELETE FROM task_modules WHERE task_list = ?', (task_list,))
         for module in modules:
-            conn.execute('INSERT INTO task_modules (task_list, name) VALUES (?, ?)', (task_list, module))
-        conn.commit()
+            self.conn.execute('INSERT INTO task_modules (task_list, name) VALUES (?, ?)', (task_list, module))
+        self.conn.commit()
 
     def get_loaded_task_modules(self, task_list):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT name FROM task_modules WHERE task_list = ?', (task_list,))
+        cur = self.conn.execute('SELECT name FROM task_modules WHERE task_list = ?', (task_list,))
         modules = []
         for row in cur:
             modules.append(row['name'])
         return modules
 
     def get_tasks(self, task_list):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT module,command FROM tasks WHERE task_list = ?', (task_list,))
+        cur = self.conn.execute('SELECT module,command FROM tasks WHERE task_list = ?', (task_list,))
         tasks = []
         for row in cur:
             tasks.append(Snippet(row['module'], row['command']))
         return tasks
 
     def add_tasks(self, task_list, tasks):
-        conn = self._get_conn(self._filename)
         for (module, command) in tasks:
-            conn.execute('INSERT INTO tasks (module, command, task_list) VALUES (?, ?, ?)',
+            self.conn.execute('INSERT INTO tasks (module, command, task_list) VALUES (?, ?, ?)',
                               (module, command, task_list))
-        conn.commit()
+        self.conn.commit()
 
     def delete_tasks(self, task_list):
-        conn = self._get_conn(self._filename)
-        conn.execute('DELETE FROM tasks WHERE task_list = ?', (task_list,))
-        conn.commit()
+        self.conn.execute('DELETE FROM tasks WHERE task_list = ?', (task_list,))
+        self.conn.commit()
 
     def add_task_list(self, name):
-        conn = self._get_conn(self._filename)
-        conn.execute('INSERT INTO task_lists (name) VALUES (?)', (name,))
-        conn.commit()
+        self.conn.execute('INSERT INTO task_lists (name) VALUES (?)', (name,))
+        self.conn.commit()
 
     def get_task_lists(self):
-        conn = self._get_conn(self._filename)
         task_lists = []
-        for row in conn.execute('SELECT name FROM task_lists'):
+        for row in self.conn.execute('SELECT name FROM task_lists'):
             task_lists.append(row['name'])
         return task_lists
 
     def get_active_task_list(self):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT name FROM task_lists WHERE active = 1')
+        cur = self.conn.execute('SELECT name FROM task_lists WHERE active = 1')
         row = cur.fetchone()
 
         assert cur.fetchone() is None     # Make sure there is exactly one active task
@@ -574,27 +551,23 @@ class Database(object):
             return row['name']
 
     def set_active_task_list(self, name):
-        conn = self._get_conn(self._filename)
-        conn.execute('UPDATE task_lists SET active = (CASE name WHEN ? THEN 1 ELSE 0 END)', (name,))
-        conn.commit()
+        self.conn.execute('UPDATE task_lists SET active = (CASE name WHEN ? THEN 1 ELSE 0 END)', (name,))
+        self.conn.commit()
 
     def del_task_list(self, name):
-        conn = self._get_conn(self._filename)
-        conn.execute('DELETE FROM tasks WHERE task_list = ?', (name,))
-        conn.execute('DELETE FROM task_modules WHERE task_list = ?', (name,))
-        conn.execute('DELETE FROM task_lists WHERE name = ?', (name,))
-        conn.commit()
+        self.conn.execute('DELETE FROM tasks WHERE task_list = ?', (name,))
+        self.conn.execute('DELETE FROM task_modules WHERE task_list = ?', (name,))
+        self.conn.execute('DELETE FROM task_lists WHERE name = ?', (name,))
+        self.conn.commit()
 
     def get_task_list_updated(self, name):
-        conn = self._get_conn(self._filename)
-        cur = conn.execute('SELECT last_update as "last_update [timestamp]" FROM task_lists WHERE name = ?', (name,))
+        cur = self.conn.execute('SELECT last_update as "last_update [timestamp]" FROM task_lists WHERE name = ?', (name,))
         row = cur.fetchone()
         return row[0]
 
     def updated_task_list(self, name):
-        conn = self._get_conn(self._filename)
-        conn.execute('UPDATE task_lists SET last_update = CURRENT_TIMESTAMP WHERE name = ?', (name,))
-        conn.commit()
+        self.conn.execute('UPDATE task_lists SET last_update = CURRENT_TIMESTAMP WHERE name = ?', (name,))
+        self.conn.commit()
 
 def main():
     usage = 'usage: %s [options]'

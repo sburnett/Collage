@@ -28,8 +28,6 @@ from instrument import CollageStatus
 
 DISABLE_COMPRESSION = False
 
-import pdb
-
 class MessageLayerError(Exception):
     """Raised when the message layer fails to send or receive a message."""
     pass
