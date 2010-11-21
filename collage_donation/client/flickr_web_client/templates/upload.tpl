@@ -5,61 +5,51 @@
         <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.0r4/build/fonts/fonts-min.css" />
         <link rel="stylesheet" type="text/css" href="/static/button.css" />
         <link rel="stylesheet" type="text/css" href="/static/default.css" />
+        <link rel="stylesheet" type="text/css" href="/static/fileuploader.css" />
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/yahoo-dom-event/yahoo-dom-event.js"></script>
         
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/element/element-min.js"></script>
         <script type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/button/button-min.js"></script>
+        <script type="text/javascript" src="/static/fileuploader.js" />
 
         <script type="text/javascript" src="/static/swfupload/swfupload.js"></script>
         <script type="text/javascript" src="/static/swfupload.queue.js"></script>
-        <script type="text/javascript" src="/static/handlers.js"></script>
+        <script type="text/javascript" src="/static/utils.js"></script>
         <script type="text/javascript">
-            var swfu;
-
             window.onload = function() {
-                var settings = {
-                    flash_url : "/static/swfupload/swfupload.swf",
-                    upload_url: "/upload_file",
-                    file_post_name: "vector",
-                    post_params: {"token" : "{{token}}", "userid" : "{{userid}}"},
-                    file_size_limit : "10 MB",
-                    file_types : "*.jpeg;*.jpg",
-                    file_types_description : "All Files",
-                    file_upload_limit : 100,
-                    file_queue_limit : 0,
-                    custom_settings : {
-                        upload_target : "divFileProgressContainer",
-                        progressTarget : "fsUploadProgress",
-                        cancelButtonId : "btnCancel"
-                    },
+                var uploader = new qq.FileUploader({
+                    element: document.getElementById('uploadButtonPlaceHolder'),
+                    action: '/upload_file',
+                    allowedExtensions: ['jpg', 'jpeg'],
+                    sizeLimit: 10485760,
                     debug: false,
+                    onComplete: function(id, fileName, responseJSON) {
+                        if(responseJSON.success) {
+                            filename = responseJSON.filename;
+                            addImage("/thumbnail?filename=" + escape(filename), filename);
 
-                    // Button settings
-				    button_image_url : "/static/images/SmallSpyGlassWithTransperancy_17x18.png",
-                    button_width: "250",
-                    button_height: "18",
-                    button_placeholder_id: "spanButtonPlaceHolder",
-                    button_text : '<span class="button">Select images to upload<span class="buttonSmall">(10 MB Max)</span></span>',
-                    button_text_style : '.button { font-family: Helvetica, Arial, sans-serif; font-size: 12pt; } .buttonSmall { font-size: 10pt; }',
-                    button_text_top_padding: 0,
-                    button_text_left_padding: 18,
-                    button_window_mode: SWFUpload.WINDOW_MODE.TRANSPARENT,
-                    button_cursor: SWFUpload.CURSOR.HAND,
-
-                    
-                    // The event handler functions are defined in handlers.js
-                    file_queued_handler : fileQueued,
-                    file_queue_error_handler : fileQueueError,
-                    file_dialog_complete_handler : fileDialogComplete,
-                    upload_start_handler : uploadStart,
-                    upload_progress_handler : uploadProgress,
-                    upload_error_handler : uploadError,
-                    upload_success_handler : uploadSuccess,
-                    upload_complete_handler : uploadComplete,
-                    queue_complete_handler : queueComplete	// Queue plugin event
-                };
-
-                swfu = new SWFUpload(settings);
+                            el = document.getElementById("vector_ids");
+                            if (el.value === "") {
+                                el.value = filename;
+                            } else {
+                                el.value += ";" + filename;
+                            }
+                        }
+                    },
+                    showMessage: function(message) { },
+                    template: '<div class="qq-uploader">' +
+                              '<div class="qq-upload-drop-area"><span>Drop photos here to upload</span></div>' +
+                              '<div class="qq-upload-button">Upload photos</div>' +
+                              '<ul class="qq-upload-list"></ul>' +
+                              '</div>',
+                    messages: {
+                        typeError: "{file} has invalid extension. Only JPEG photos are allowed.",
+                        sizeError: "{file} is too large, maximum photo size is {sizeLimit}.",
+                        minSizeError: "{file} is too small, minimum photo size is {minSizeLimit}.",
+                        emptyError: "{file} is empty, please select photos again without it.",
+                        onLeave: "The photos are being uploaded, if you leave now the upload will be cancelled."
+                    }
+                });
 
                 val = document.getElementById("vector_ids").value;
                 if(val.length > 0) {
@@ -69,7 +59,7 @@
                         addImage(url, filenames[i]);
                     }
                 }
-             };
+            };
         </script>
 
         <style>
@@ -120,10 +110,9 @@
             {% endif %}
             <p><b>Step 1:</b> What photos would you like to donate? <small>(<a href="/static/faq.html#uploads" target="_blank">what's this?</a>)</small></p>
             <input type="hidden" name="vector_ids" id="vector_ids" value="{% if vector_ids %}{{vector_ids}}{% endif %}"/>
-            <div style="display: inline; border: solid 1px #7FAAFF; background-color: #C5D9FF; padding: 2px;">
-                <span id="spanButtonPlaceHolder"></span>
+            <div id="uploadButtonPlaceHolder">
+                <noscript><p>Please enable JavaScript to upload photos.</p></noscript>
             </div>
-            <div id="divFileProgressContainer" style="height: 75px;"></div>
             <div id="thumbnails" style="margin-bottom: 20px">
             </div>
 
