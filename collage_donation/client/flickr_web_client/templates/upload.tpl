@@ -26,7 +26,7 @@
                     onComplete: function(id, fileName, responseJSON) {
                         if(responseJSON.success) {
                             filename = responseJSON.filename;
-                            addImage("/thumbnail?filename=" + escape(filename), filename);
+                            addImage("/thumbnail?filename=" + escape(filename), filename, true);
 
                             el = document.getElementById("vector_ids");
                             if (el.value === "") {
@@ -56,7 +56,7 @@
                     filenames = val.split(";");
                     for(var i = 0; i < filenames.length; i++) {
                         url = "/thumbnail?filename=" + escape(filenames[i]);
-                        addImage(url, filenames[i]);
+                        addImage(url, filenames[i], false);
                     }
                 }
             };

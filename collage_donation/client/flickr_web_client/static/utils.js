@@ -42,7 +42,7 @@ function updateVectorIds() {
     document.getElementById("vector_ids").value = filenames.join(";");
 }
 
-function addImage(src, filename) {
+function addImage(src, filename, fade) {
 	var newImg = document.createElement("img");
 	newImg.style.margin = "5px";
 
@@ -60,20 +60,22 @@ function addImage(src, filename) {
     newSpan.appendChild(thumbCancel);
 	document.getElementById("thumbnails").appendChild(newSpan);
 
-	if (newImg.filters) {
-		try {
-			newImg.filters.item("DXImageTransform.Microsoft.Alpha").opacity = 0;
-		} catch (e) {
-			// If it is not set initially, the browser will throw an error.  This will set it if it is not set yet.
-			newImg.style.filter = 'progid:DXImageTransform.Microsoft.Alpha(opacity=' + 0 + ')';
-		}
-	} else {
-		newImg.style.opacity = 0;
-	}
+    if(fade) {
+        if (newImg.filters) {
+            try {
+                newImg.filters.item("DXImageTransform.Microsoft.Alpha").opacity = 0;
+            } catch (e) {
+                // If it is not set initially, the browser will throw an error.  This will set it if it is not set yet.
+                newImg.style.filter = 'progid:DXImageTransform.Microsoft.Alpha(opacity=' + 0 + ')';
+            }
+        } else {
+            newImg.style.opacity = 0;
+        }
 
-	newImg.onload = function () {
-		fadeIn(newImg, 0);
-	};
+        newImg.onload = function () {
+            fadeIn(newImg, 0);
+        };
+    }
 	newImg.src = src;
 }
 
