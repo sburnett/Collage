@@ -201,9 +201,6 @@ class MessageLayer(object):
                 except vectorlayer.EncodingError:
                     raise vectorlayer.EncodingError
 
-                if encoded_vector is None:
-                    pdb.set_trace()
-
                 return (len(ciphertext), encoded_vector)
 
             try:
@@ -250,7 +247,6 @@ class MessageLayer(object):
                     lower_bound = current_size
 
             if coded_vector is not None:
-                pdb.set_trace()
                 vector_queue.put((cover_vector, coded_vector))
             else:
                 self._vector_provider.repurpose_vector(cover_vector)
