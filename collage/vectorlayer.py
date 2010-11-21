@@ -9,8 +9,9 @@ class EncodingError(Exception):
     pass
 
 class Vector(object):
-    """An abstract class for an immutable vector; encoding and decoding should
-    create new copies of the vector."""
+    """An abstract class for an immutable vector; encode and decode should
+    create and return new copies of the vector, not mutate the data in the
+    current vector."""
 
     def __init__(self, data, properties={}):
         self._data = str(data)
@@ -35,8 +36,9 @@ class Vector(object):
         raise NotImplementedError
 
 class VectorProvider(object):
-    """Provider of unembedded vector (e.g., images, tweets). Applications
-    must implement this class."""
+    """Provider of unembedded vectors (e.g., images, tweets). Applications
+    must implement this class. Each task specifies constraints on the types
+    of vectors that can be used with that task."""
 
     def __init__(self):
         self._vectors = []
