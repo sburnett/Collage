@@ -1,0 +1,11 @@
+h2 {
+    margin-top: 0px;
+}
+div {
+    padding: 5px;
+    margin-top: 1em;
+}
+div:target {
+    background-color: #ffb;
+    border: 1px solid #dd7;
+}
