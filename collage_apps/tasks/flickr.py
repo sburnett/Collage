@@ -1,3 +1,5 @@
+"""Upload and download photos to and from Flickr."""
+
 import base64
 import tempfile
 import urllib
@@ -8,6 +10,8 @@ from collage.messagelayer import Task
 from collage_apps.vectors.jpeg import OutguessVector
 
 class DirectFlickrTask(Task):
+    """Use Flickr API to upload/download from a user account."""
+
     def __init__(self, flickr):
         self._flickr = flickr
 
@@ -42,6 +46,8 @@ class DirectFlickrTask(Task):
         return True
 
 class TagPairFlickrTask(Task):
+    """Use Flickr API to upload/download photos using keyword searches."""
+
     def __init__(self, flickr, tags):
         self._flickr = flickr
         self._tags = tags
@@ -79,6 +85,8 @@ class TagPairFlickrTask(Task):
         return True
 
 class DonateTagPairFlickrTask(Task):
+    """Upload photos using Collage's donation system (collage_donation)"""
+
     def __init__(self, tags, database):
         self._tags = tags
         self._db = database

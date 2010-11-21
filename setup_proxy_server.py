@@ -24,5 +24,5 @@ setup(
                          ,'numpy'
                          ,'flickrapi'
                          ],
-        scripts=['run-proxy-server.sh'],
+        scripts=['proxy_server.py'],
         )

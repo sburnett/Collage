@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+"""Publish daily BBC news inside user-generated content.
+
+Photos are published on three venues:
+* On a centralized (i.e., dedicated) Flickr profile. We provide a
+  standard set of photos, and upload the same photos each day. This is reliable,
+  but very easy to block.
+* On the profiles of volunteers on Flickr. The photos are donated by
+  the (many?) volunteers and would presumably have been uploaded regardless of
+  Collage usage. Thus, they are harder to block, but also harder to find.
+* On a local content host (for testing only).
+
+"""
 
 from collage_donation.server.database import AppDatabase
 import datetime
@@ -19,18 +31,13 @@ from collage_apps.instruments import Timestamper
 
 import proxy_common as common
 
-def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, estimate_db):
-    database = AppDatabase(db_dir, 'proxy')
+def send_news_centralized(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    """Publish news inside stock photos on dedicated Flickr account."""
 
-    tasks = []
-    if local_dir is not None:
-        tasks.append(DonateDirectoryTask(local_dir, address, database))
-    else:
-        tag_pairs = [(a, b) for a in tags for b in tags if a < b]
-        tasks.extend(map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs))
+    database = AppDatabase(db_dir, 'proxy_centralized')
 
+    tasks = [DonateTagPairFlickrTask(('nature', 'vacation'), database)]
     vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
-
     message_layer = MessageLayer(vector_provider,
                                  common.BLOCK_SIZE,
                                  common.MAX_UNIQUE_BLOCKS,
@@ -39,11 +46,47 @@ def send_news(address, data, db_dir, tags, send_ratio, killswitch, local_dir, es
                                  Timestamper(),
                                  mac=True)
 
-    #print 'Sending message: %s' % data
+    message_layer.send(address, data, send_ratio=send_ratio)
+
+def send_news_community(address, data, db_dir, tags, send_ratio, killswitch, estimate_db):
+    """Publish news inside photos provided by community volunteers."""
+
+    database = AppDatabase(db_dir, 'proxy_community')
+
+    tag_pairs = [(a, b) for a in tags for b in tags if a < b]
+    tasks = map(lambda pair: DonateTagPairFlickrTask(pair, database), tag_pairs)
+    vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
+    message_layer = MessageLayer(vector_provider,
+                                 common.BLOCK_SIZE,
+                                 common.MAX_UNIQUE_BLOCKS,
+                                 tasks,
+                                 common.TASKS_PER_MESSAGE,
+                                 Timestamper(),
+                                 mac=True)
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
+def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, estimate_db):
+    """Publish news inside photos on a local content host, for testing."""
+
+    database = AppDatabase(db_dir, 'proxy_local')
+
+    tasks = [DonateDirectoryTask(local_dir, address, database)]
+    vector_provider = DonatedVectorProvider(database, killswitch, estimate_db)
+    message_layer = MessageLayer(vector_provider,
+                                 common.BLOCK_SIZE,
+                                 common.MAX_UNIQUE_BLOCKS,
+                                 tasks,
+                                 common.TASKS_PER_MESSAGE,
+                                 Timestamper(),
+                                 mac=True)
+
+    message_layer.send(address, data, send_ratio=send_ratio)
+
+MAX_PAYLOAD_SIZE=32000
 def get_news(today):
+    """Fetch today's top news from the BBC mobile Web site."""
+
     urls = []
 
     pagedata = urllib.urlopen('http://www.bbc.co.uk/news/mobile').read()
@@ -70,10 +113,20 @@ def get_news(today):
         else:
             stories.append('<div>' + match.group('title') + match.group('story') + '</div>')
 
-    payload = ''.join(stories[:5])
+    payload = ''
+    num_stories = 0
+    for story in stories:
+        if len(payload) + len(story) < MAX_PAYLOAD_SIZE:
+            payload += story
+            num_stories += 1
+
+    print 'Publishing %d articles' % num_stories
+
     return payload
 
 def get_tags():
+    """Fetch the list of top tags on Flickr."""
+
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
     block = match.group(1)
@@ -113,19 +166,40 @@ def main():
         db_dir = args[0]
         tags = get_tags()
         
-        killswitch = threading.Event()
+        thread_info = []
 
-        thread = threading.Thread(target=send_news,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, options.local_dir, estimate_db))
+        # Centralized
+        killswitch = threading.Event()
+        thread = threading.Thread(target=send_news_centralized,
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
         thread.daemon = True
         thread.start()
+        thread_info.append((thread, killswitch))
+
+        # Community
+        killswitch = threading.Event()
+        thread = threading.Thread(target=send_news_community,
+                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
+        thread.daemon = True
+        thread.start()
+        thread_info.append((thread, killswitch))
+
+        # Local directory
+        if options.local_dir is not None:
+            killswitch = threading.Event()
+            thread = threading.Thread(target=send_news_community,
+                                      args=(address, data, db_dir, options.local_dir, options.send_ratio, killswitch, estimate_db))
+            thread.daemon = True
+            thread.start()
+            thread_info.append((thread, killswitch))
 
         while today.day == datetime.datetime.utcnow().day:
             time.sleep(1)
 
-        if thread.is_alive():
-            killswitch.set()
-            thread.join()
+        for (thread, killswitch) in thread_info:
+            if thread.is_alive():
+                killswitch.set()
+                thread.join()
 
 if __name__ == '__main__':
     main()

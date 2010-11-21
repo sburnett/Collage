@@ -1,3 +1,10 @@
+"""A simple content host of testing Collage.
+
+This content host serves a directory of donated Collage photos, with minimal
+extra interface. It definitely isn't meant for production use.
+
+"""
+
 import os.path
 import glob
 

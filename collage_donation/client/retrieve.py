@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""A command-line interface to poll for completion of vector donation.
+
+If the indicated vector is available, it will be printed to stdout and the
+script will exit with return code 0. Otherwise, nothing will be printed to
+stdout and the script will exit with return code 1.
+
+"""
 
 import sys
 from optparse import OptionParser

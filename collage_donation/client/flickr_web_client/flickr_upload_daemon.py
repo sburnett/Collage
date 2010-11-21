@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 
-# Suggested usage:
-#
-# flickr_upload_daemon.py -a client:web vectors
-#
-# (Ensure that directory vectors exists.) This will upload all
-# photos that we donated by the Web donation client.
+"""A daemon for uploading Flickr photos donated via the Web interface.
+
+This is needed so that the Web application doesn't need to call back
+to the donation server.
+
+Suggested usage:
+
+flickr_upload_daemon.py -a client:web vectors
+
+(Ensure that directory vectors exists.) This will upload all
+photos that we donated by the Web donation client.
+
+"""
 
 from optparse import OptionParser
 import time

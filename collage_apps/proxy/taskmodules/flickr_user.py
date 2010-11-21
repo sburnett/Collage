@@ -138,8 +138,6 @@ class WebUserFlickrTask(Task):
             try:
                 next_link = d.find_element_by_xpath('//a[@class="Next"]')
             except NoSuchElementException:
-                pdb.set_trace()
-
                 pages_remaining = False     # There are no results remaining
                 continue
 

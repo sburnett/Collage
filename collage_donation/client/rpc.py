@@ -1,3 +1,5 @@
+"""Client end of Collage donation RPC."""
+
 import xmlrpclib
 
 def submit(url, data, application, attributes, expiration):

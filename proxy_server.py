@@ -14,24 +14,46 @@ export COLLAGE_USER=%(user)s;
 export COLLAGE_HOME=%(directory)s;
 export COLLAGE_ROOT=%(collage_root)s;
 export PYTHONPATH=%(collage_root)s;
-tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n lighttpd_donation 'lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n garbage 'python -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n django 'sleep 10; %(django_admin)s runfcgi --settings=collage_donation.client.flickr_web_client.settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n lighttpd_flickr 'lighttpd -f %(collage_root)s/collage_donation/client/flickr_web_client/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n flickr_upload_daemon 'python -m collage_donation.client.flickr_web_client.flickr_upload_daemon; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n get_latest_tags 'python -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
-tmux new-window -t collage -n proxy_server 'python -m collage_apps.proxy.proxy_server vectors; echo Process terminated. Press ENTER to exit.; read';
+tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n garbage '%(python)s -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n django 'sleep 10; %(django_admin)s runfcgi --settings=collage_donation.client.flickr_web_client.webapp_settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n lighttpd_flickr '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/client/flickr_web_client/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n flickr_upload_daemon '%(python)s -m collage_donation.client.flickr_web_client.flickr_upload_daemon; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n get_latest_tags '%(python)s -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n centralized_donate 'sleep 15; %(python)s -m collage_donation.client.proxy_centralized_donate %(directory)s/centralized_photos; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n proxy_server '%(python)s -m collage_apps.proxy.proxy_server vectors; echo Process terminated. Press ENTER to exit.; read';
 tmux attach-session -t collage;'''
 
 clean_script_text = '''cd %(directory)s;
 rm -f waiting_keys.sqlite vectors/* uploads/* *.log estimate_db serv_misc/*.log;'''
 
-clean_run_script_text = clean_script_text + run_script_text
+donation_script_text = '''cd %(directory)s;
+export COLLAGE_USER=%(user)s;
+export COLLAGE_HOME=%(directory)s;
+export COLLAGE_ROOT=%(collage_root)s;
+export PYTHONPATH=%(collage_root)s;
+tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n garbage '%(python)s -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n django 'sleep 10; %(django_admin)s runfcgi --settings=collage_donation.client.flickr_web_client.webapp_settings method=threaded socket=serv_misc/django.socket pidfile=serv_misc/django.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n lighttpd_flickr '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/client/flickr_web_client/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n flickr_upload_daemon '%(python)s -m collage_donation.client.flickr_web_client.flickr_upload_daemon; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n get_latest_tags '%(python)s -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
+tmux attach-session -t collage;'''
 
+clean_run_script_text = clean_script_text + run_script_text
+clean_donation_script_text = clean_script_text + donation_script_text
+
+commands = { 'run': run_script_text
+           , 'clean': clean_script_text
+           , 'cleanrun': clean_run_script_text
+           , 'donation': donation_script_text
+           , 'cleandonation': clean_donation_script_text
+           }
 
 def parse_options():
-    usage = 'usage: %s [options] <run|clean|cleanrun>'
+    usage = 'usage: %%s [options] <%s>' % ('|'.join(commands.keys()),)
     parser = OptionParser(usage=usage)
     parser.set_defaults(config=None,
                         user=None,
@@ -53,6 +75,12 @@ def parse_options():
     parser.add_option('-a', '--django-admin', dest='django',
                       action='store', type='string',
                       help='django-admin executable to use')
+    parser.add_option('-p', '--python', dest='python',
+                      action='store', type='string',
+                      help='Path to python executable')
+    parser.add_option('-s', '--use-su', dest='su',
+                      action='store_true',
+                      help='Whether or not to use su (default is sudo).')
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
@@ -62,6 +90,8 @@ def parse_options():
     directory = options.directory
     collage_root = options.root
     django_admin = options.django
+    python_exe = options.python
+    use_su = options.su
 
     if options.config is not None:
         cfg = ConfigParser.ConfigParser()
@@ -81,6 +111,14 @@ def parse_options():
             if django_admin is None \
                     and cfg.has_option('proxy', 'django_admin'):
                 django_admin = cfg.get('proxy', 'django_admin')
+
+            if python_exe is None \
+                    and cfg.has_option('proxy', 'python'):
+                python_exe = cfg.get('proxy', 'python')
+
+            if use_su is None \
+                    and cfg.has_option('proxy', 'use_su'):
+                use_su = cfg.getboolean('proxy', 'use_su')
     
     if directory is None:
         if user is None:
@@ -102,20 +140,22 @@ def parse_options():
     if django_admin is None:
         django_admin = 'django-admin'
 
+    if python_exe is None:
+        python_exe = 'python'
+
+    if use_su is None:
+        use_su = False
+
     directory = os.path.abspath(os.path.expanduser(directory))
     collage_root = os.path.abspath(collage_root)
 
-    return (args[0], user, directory, collage_root, django_admin)
+    return (args[0], user, directory, collage_root, django_admin, python_exe, use_su)
 
 def main():
-    (command, user, directory, collage_root, django_admin) = parse_options()
+    (command, user, directory, collage_root, django_admin, python_exe, use_su) = parse_options()
 
-    if command == 'run':
-        script_text = run_script_text
-    elif command == 'clean':
-        script_text = clean_script_text
-    elif command == 'cleanrun':
-        script_text = clean_run_script_text
+    if command in commands:
+        script_text = commands[command]
     else:
         print 'Invalid command %s' % command
         return
@@ -130,11 +170,15 @@ def main():
     os.write(ofh, script_text % {'user': user,
                                  'directory': directory,
                                  'collage_root': collage_root,
-                                 'django_admin': django_admin})
+                                 'django_admin': django_admin,
+                                 'python': python_exe})
     os.close(ofh)
     os.chmod(script_path, stat.S_IRGRP|stat.S_IROTH|stat.S_IRUSR|stat.S_IWUSR)
 
-    cmd = 'sudo -u %s -s -- bash %s' % (user, script_path)
+    if use_su:
+        cmd = 'su %s %s' % (user, script_path)
+    else:
+        cmd = 'sudo -u %s -i -- bash %s' % (user, script_path)
     print 'Running command %s' % cmd
     subprocess.call(cmd, shell=True)
     print 'Done with command'

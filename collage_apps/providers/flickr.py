@@ -1,3 +1,5 @@
+"""Provide vectors from Collage's donation system."""
+
 import random
 import time
 

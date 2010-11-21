@@ -1,4 +1,9 @@
 #!/usr/bin/python
+"""Periodically fetch list of popular Flickr tags, and format them in HTML.
+
+Tags are fetched once per day.
+
+"""
 
 import urllib
 import re
@@ -6,6 +11,13 @@ import os.path
 import time
 
 def get_latest_tags():
+    """Fetch the latest popular tags.
+
+    The list is formatted in HTML for inclusion by the Web application, using
+    the YUI toolkit.
+
+    """
+
     pagedata = urllib.urlopen('http://flickr.com/photos/tags').read()
     match = re.search('<p id="TagCloud">(.*?)</p>', pagedata, re.S|re.I)
     block = match.group(1)

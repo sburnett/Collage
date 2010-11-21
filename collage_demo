@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir -p ~/.collage_demo
+cd ~/.collage_demo
+python -m collage_apps.proxy.proxy_client

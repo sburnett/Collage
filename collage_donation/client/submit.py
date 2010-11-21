@@ -1,9 +1,18 @@
 #!/usr/bin/env python
+"""A command-line application for submitting vector donations.
+
+The donated vector is read from stdin. A unique key is written
+to stdout, which should be used to poll for completion. (See
+retrieve.py)
+
+"""
 
 import sys
 from optparse import OptionParser
 
 from rpc import submit
+
+import pdb
 
 def main():
     usage = 'usage: %s [options] <application>'
@@ -19,6 +28,9 @@ def main():
 
     data = sys.stdin.read()
     application = args[0]
+
+    print >>sys.stderr, args[0]
+
     attrs = []
     for attr in options.attributes:
         attrs.append(tuple(attr.split(':', 1)))

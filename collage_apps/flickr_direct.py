@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-'''
-This Collage application implements a simple proxy server based on Flickr.
+"""
+This Collage application implements simple messaging hosted on Flickr.
 
-The task scheme used for this proxy is "direct", since files are uploaded and
-downloaded without regard to deniability.
-'''
+The task scheme used for this is "direct", since files are uploaded and
+downloaded using the Flickr API with no regard for deniability.
+
+"""
 
 import sys
 from optparse import OptionParser
@@ -23,8 +24,9 @@ from collage_apps.instruments import timestamper
 def auth_flickr():
     """Authenticate with Flickr using our api key and secret.
 
-    The user will be prompted to authenticate using his
-    account if needed."""
+    The user will be prompted to authenticate using his account if needed.
+    
+    """
 
     api_key = 'ebc4519ce69a3485469c4509e8038f9f'
     api_secret = '083b2c8757e2971f'

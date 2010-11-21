@@ -7,9 +7,8 @@
     <body>
         <h1>Collage Flickr Photo Donation</h1>
 
-        Welcome to Collage Photo Donation. Using this Web site, you
-        can upload photos to your Flickr account. In the process of doing so,
-        you will also be helping users of <a
+        Using this Web site, you can upload photos to your Flickr account. In
+        doing so, you will be helping users of <a
         href="http://www.gtnoise.net/collage">Collage</a>, a new system for
         circumventing Internet censorship.
 

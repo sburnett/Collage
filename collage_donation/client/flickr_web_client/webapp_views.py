@@ -1,3 +1,9 @@
+"""A Django Web application for donating Flickr photos to Collage.
+
+Users are authenticated using the Flickr API.
+
+"""
+
 import flickrapi
 import urllib
 import re
@@ -22,13 +28,15 @@ script_path = os.path.dirname(sys.argv[0])
 def template_path(name):
     return os.path.join(script_path, 'views', '%s.tpl' % name)
 
-api_key = 'ebc4519ce69a3485469c4509e8038f9f'
-api_secret = '083b2c8757e2971f'
+#api_key = 'ebc4519ce69a3485469c4509e8038f9f'
+api_key = 'a6836dfd740bb002bbad3a87e2048a69'
+#api_secret = '083b2c8757e2971f'
+api_secret = '43041d46e039d139'
 
 flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
-APPLICATION_NAME = 'proxy'
+APPLICATION_NAME = 'proxy_community'
 UPLOADS_DIR = os.path.abspath('uploads')
 
 def check_credentials(request):
@@ -179,12 +187,16 @@ def upload(request):
     return render_to_response('process.tpl', args)
 
 def upload_file(request):
-    vector = request.FILES.get('vector')
-    token = request.REQUEST.get('token')
-    userid = request.REQUEST.get('userid')
-
-    if vector is None or token is None or userid is None:
+    if not check_credentials(request):
         return HttpResponseBadRequest()
+
+    vector = request.raw_post_data
+
+    if len(vector) > 10*1024*1024:
+        return HttpResponse('{"success": false, "error": "Maximum photo size is 10 MB"}')
+
+    token = request.session['token']
+    userid = request.session['userid']
 
     f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
     try:
@@ -192,12 +204,11 @@ def upload_file(request):
     except flickrapi.FlickrError:
         return HttpResponseBadRequest()
 
-    data = vector.read()
     outf = tempfile.NamedTemporaryFile(suffix='.jpg', prefix='upload', dir=UPLOADS_DIR, delete=False)
-    outf.write(data)
+    outf.write(vector)
     outf.close()
 
-    return HttpResponse(outf.name)
+    return HttpResponse('{"success": true, "filename": "%s"}' % outf.name)
 
 def thumbnail(request):
     if not check_credentials(request):
@@ -247,29 +258,4 @@ def callback(request):
 
     request.session['token'] = token
     request.session['userid'] = userid
-    return HttpResponseRedirect('/')
-
-#def main():
-#    usage = 'usage: %s [options]'
-#    parser = OptionParser(usage=usage)
-#    parser.set_defaults(database='waiting_keys.sqlite')
-#    parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
-#    (options, args) = parser.parse_args()
-#
-#    global wait_db
-#    wait_db = options.database
-#
-#    if len(args) != 0:
-#        parser.error('Invalid argument')
-#
-#    get_latest_tags()
-#    
-#    cherrypy.config.update({'tools.sessions.on': True})
-#    config = { '/static':
-#                    { 'tools.staticdir.on' : True,
-#                      'tools.staticdir.dir': STATIC_DIR }
-#             }
-#    cherrypy.quickstart(FlickrWebClient(), config=config)
-#
-#if __name__ == '__main__':
-#    main()
+    return HttpResponseRedirect('/upload')

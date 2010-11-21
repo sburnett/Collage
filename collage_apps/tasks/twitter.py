@@ -1,3 +1,5 @@
+"""A variety of tasks for posting and reading tweets."""
+
 import time
 import random
 
@@ -6,6 +8,8 @@ from collage.messagelayer import Task
 from selenium.common.exceptions import NoSuchElementException
 
 class DirectTwitterTask(Task):
+    """Post and read tweets using Twitter API."""
+
     def __init__(self, twitter, username, VectorClass):
         self._twitter = twitter
         self._username = username
@@ -23,6 +27,8 @@ class DirectTwitterTask(Task):
         return True
 
 class WebTwitterTask(Task):
+    """Post and read tweets using Selenium on Twitter's Web site."""
+
     def __init__(self, driver, username, VectorClass):
         self._driver = driver
         self._username = username

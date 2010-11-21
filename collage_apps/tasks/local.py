@@ -1,3 +1,9 @@
+"""Upload photos using Collage's donation system, to a local content host.
+
+This is for testing only, and obviously can't be used in real applications.
+
+"""
+
 import base64
 import hashlib
 

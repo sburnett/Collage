@@ -1,4 +1,5 @@
 include INSTALL
+include INSTALL.server
 include collage_donation/server/lighttpd.conf
 include collage_donation/client/flickr_web_client/lighttpd.conf
 recursive-include collage_donation/client/flickr_web_client/static *
