@@ -114,7 +114,7 @@
             </div>
 
             <p><b>Step 2:</b> What is a title for these photos? <input class="box" type="text" name="title" size="50" value="{{title|default:""}}"/></p>
-            <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr? <input class="box" type="text" name="expiration" size="1" value="{{expiration|default:"24"}}"/> hours. <small>(<a href="/static/faq.html#expiration" target="_blank">what's this?</a>)</small></br></p>
+            <p><b>Step 3:</b> How many hours may we hold your photos before uploading them to Flickr? <input class="box" type="text" name="expiration" size="2" value="{{expiration|default:"24"}}"/> hours. <small>(<a href="/static/faq.html#expiration" target="_blank">what's this?</a>)</small></br></p>
             <p><b>Step 4:</b> What tags best describe your photos? Click <i>at least three</i> tags on this list: <small>(<a href="/static/faq.html#tags" target="_blank">what's this?</a>)</small>
             <script type="text/javascript">
             {% include "tags.tpl" %}
