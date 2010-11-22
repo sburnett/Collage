@@ -26,17 +26,16 @@ from collage_donation.client.rpc import retrieve
 
 import pdb
 
-api_key = 'ebc4519ce69a3485469c4509e8038f9f'
-api_secret = '083b2c8757e2971f'
-
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 PAUSE_TIME = 3
 
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='waiting_keys.sqlite')
+    parser.set_defaults(database='waiting_keys.sqlite', api_key=os.environ['FLICKR_API_KEY'], api_secret=os.environ['FLICKR_SECRET'])
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
+    parser.add_option('-k', '--flickr-api-key', dest='api_key', action='store', type='string', help='Flickr API key')
+    parser.add_option('-s', '--flickr-secret', dest='api_secret', action='store', type='string', help='Flickr API secret')
     (options, args) = parser.parse_args()
 
     if len(args) != 0:
@@ -48,7 +47,7 @@ def main():
                     (key TEXT, title TEXT, token TEXT)''')
     conn.execute('''CREATE TABLE IF NOT EXISTS tags
                     (tag TEXT, waiting_id INTEGER)''')
-    
+
     while True:
         keys = []
         cur = conn.execute('SELECT key FROM waiting')
@@ -74,7 +73,7 @@ def main():
                                         str(waiting_id)):
                     tags.append(row['tag'])
 
-                flickr = flickrapi.FlickrAPI(api_key, api_secret, token=waiting_row['token'], store_token=False)
+                flickr = flickrapi.FlickrAPI(options.api_key, options.api_secret, token=waiting_row['token'], store_token=False)
                 
                 try:
                     flickr.auth_checkToken()

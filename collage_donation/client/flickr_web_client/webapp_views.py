@@ -28,12 +28,7 @@ script_path = os.path.dirname(sys.argv[0])
 def template_path(name):
     return os.path.join(script_path, 'views', '%s.tpl' % name)
 
-#api_key = 'ebc4519ce69a3485469c4509e8038f9f'
-api_key = 'a6836dfd740bb002bbad3a87e2048a69'
-#api_secret = '083b2c8757e2971f'
-api_secret = '43041d46e039d139'
-
-flickr = flickrapi.FlickrAPI(api_key, api_secret, store_token=False)
+flickr = flickrapi.FlickrAPI(settings.FLICKR_API_KEY, settings.FLICKR_SECRET, store_token=False)
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 APPLICATION_NAME = 'proxy_community'
@@ -45,7 +40,7 @@ def check_credentials(request):
         return False
 
     token = request.session['token']
-    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    f = flickrapi.FlickrAPI(settings.FLICKR_API_KEY, settings.FLICKR_SECRET, token=token, store_token=False)
     try:
         f.auth_checkToken()
     except flickrapi.FlickrError:
@@ -198,7 +193,7 @@ def upload_file(request):
     token = request.session['token']
     userid = request.session['userid']
 
-    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    f = flickrapi.FlickrAPI(settings.FLICKR_API_KEY, settings.FLICKR_SECRET, token=token, store_token=False)
     try:
         f.auth_checkToken()
     except flickrapi.FlickrError:
@@ -241,7 +236,7 @@ def callback(request):
 
     token = flickr.get_token(frob)
 
-    f = flickrapi.FlickrAPI(api_key, api_secret, token=token, store_token=False)
+    f = flickrapi.FlickrAPI(settings.FLICKR_API_KEY, settings.FLICKR_SECRET, token=token, store_token=False)
     try:
         response = f.auth_checkToken()
     except flickrapi.FlickrError:
