@@ -101,6 +101,8 @@
 
     <body class="yui-skin-sam">
         <h1>Collage Photo Donation</h1>
+        You are logged in using Flickr account <b>{{username}}</b>. <small><a href="http://www.flickr.com/logout.gne">Log in as a different Flickr user</a>.</small>
+
         <form id="form1" action="/upload" method="POST" enctype="multipart/form-data">
             {% if error %}
                 <span class="error">{{error}}</span>

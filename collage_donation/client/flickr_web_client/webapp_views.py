@@ -95,6 +95,7 @@ def upload(request):
 
     args = {'token': request.session['token'],
             'userid': request.session['userid'],
+            'username': request.session['username'],
             'vector_ids': vector_ids,
             'title': request.REQUEST.get('title'),
             'expiration': request.REQUEST.get('expiration'),
@@ -244,7 +245,9 @@ def callback(request):
 
     userid = response.find('auth').find('user').attrib['nsid']
     response = flickr.people_getInfo(user_id=userid)
-    if response.find('person').attrib['ispro'] != '1':
+    username = response.find('person').find('username').text
+    ispro = response.find('person').attrib['ispro']
+    if ispro != '1':
         return HttpResponseRedirect('/static/notpro.html')
 
     print 'Updating: %s, %s' % (userid, token)
@@ -253,4 +256,5 @@ def callback(request):
 
     request.session['token'] = token
     request.session['userid'] = userid
+    request.session['username'] = username
     return HttpResponseRedirect('/upload')
