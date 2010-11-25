@@ -66,14 +66,17 @@ def index(request):
         return HttpResponseRedirect('/login')
 
 def login(request):
-    return render_to_response('login.tpl', {'login_url': flickr.web_login_url(perms='write')})
+    args = {'login_url': flickr.web_login_url(perms='write')}
+    if 'username' in request.session:
+        args['username'] = request.session['username']
+    return render_to_response('login.tpl', args)
 
 def logout(request):
     if 'token' in request.session:
         del request.session['token']
     if 'userid' in request.session:
         del request.session['userid']
-    return HttpResponseRedirect('/')
+    return HttpResponseRedirect('/static/logout.html')
 
 def is_valid_filename(filename):
     return filename is not None \

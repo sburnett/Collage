@@ -1,5 +1,7 @@
 body {
-    width: 60%;
+    margin-left: 200px;
+    margin-right: 20%;
+    min-width: 700px;
     align: left;
 }
 div.fieldset {
