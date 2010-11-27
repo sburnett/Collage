@@ -1,6 +1,6 @@
 class CollageStatus(object):
     """A collection of possible Collage states.
-    
+
     For sending:
 
                 +-------------------------------------+
@@ -15,7 +15,7 @@ class CollageStatus(object):
     INIT -> DOWNLOADING -> EXTRACTING -> DECRYPTING -> DECODING -> SUCCESS
                 ^              |            |             |
                 +--------------+------------+-------------+
-    
+
     """
     INIT = 'Initializing'
     ENCODING = 'Encoding'
@@ -62,3 +62,8 @@ class Instrument(object):
         """The message layer just downloaded a vector from a UGC host."""
         pass
 
+    def message(self, msg):
+        pass
+
+    def error(self, msg):
+        pass

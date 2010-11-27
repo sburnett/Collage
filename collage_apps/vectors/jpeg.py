@@ -5,6 +5,7 @@ import tempfile
 import base64
 import time
 import os
+import logging
 
 import numpy
 import hashlib
@@ -12,24 +13,33 @@ import hashlib
 from collage.vectorlayer import Vector, EncodingError
 
 class OutguessVector(Vector):
-    def __init__(self, data, timeout=10, estimate_db=None):
+    def __init__(self, data, timeout=10, estimate_db=None, logger=None):
         super(OutguessVector, self).__init__(data)
         self._timeout = timeout
         self._decoded_data = None
         self._estimate_db = estimate_db
+        if logger is None:
+            self._logger = logging.getLogger('dummy')
+        else:
+            self._logger = logger
 
     def encode(self, message, key):
+        self._logger.info('Encoding message "%s"', base64.b64encode(key))
+
+        self._logger.info('Encoder writing data file')
         data_file = tempfile.NamedTemporaryFile()
         data_file.write(message)
         data_file.flush()
 
+        self._logger.info('Encoder writing message file')
         cover_file = tempfile.NamedTemporaryFile(suffix='.jpg')
         cover_file.write(self._data)
         cover_file.flush()
 
         dest_file = tempfile.NamedTemporaryFile(suffix='.jpg')
 
-        command = ['outguess', '-k', base64.b64encode(key), 
+        self._logger.info('Encoder executing Outguess')
+        command = ['outguess', '-k', base64.b64encode(key),
                    '-d', data_file.name,
                    cover_file.name, dest_file.name]
         proc = subprocess.Popen(command, stdout=open(os.devnull, 'w'),
@@ -42,6 +52,7 @@ class OutguessVector(Vector):
             time_left -= poll_interval
 
         if proc.returncode is None or proc.returncode != 0:
+            self._logger.error('Outguess returned error %s', str(proc.returncode))
             if proc.returncode is None:
                 proc.terminate()
             raise EncodingError
@@ -50,9 +61,13 @@ class OutguessVector(Vector):
         encoded_vector = OutguessVector(encoded)
 
         if encoded_vector.decode(key) != message:
+            self._logger.error('Encoding reversal test failed')
             raise EncodingError
 
-        print 'RETURNING: %s' % hashlib.md5(encoded_vector.get_data()).hexdigest()
+        hash = hashlib.md5(encoded_vector.get_data()).hexdigest()
+        self._logger.error('Encoded vector data, has MD5 hash %s', hash)
+        print 'RETURNING: %s' % hash
+
         return encoded_vector
 
     def estimate_max_capacity(self):
@@ -86,8 +101,9 @@ class OutguessVector(Vector):
             self._estimate_db.sync()
 
     def decode(self, key):
-        print 'Key: %s' % base64.b64encode(key)
-        print 'Image hash: %s' % hashlib.md5(self._data).hexdigest()
+        self._logger.info('Decoding message "%s" from image "%s"',
+                          base64.b64encode(key),
+                          hashlib.md5(self._data).hexdigest())
         if self._decoded_data is None:
             embedded_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
             embedded_file.write(self._data)
@@ -97,6 +113,7 @@ class OutguessVector(Vector):
             print '!DC image: ' + hashlib.md5(open(embedded_file.name, 'r').read()).hexdigest()
             print '!DC length: ' + str(len(open(embedded_file.name, 'r').read()))
 
+            self._logger.info('Executing Outguess to decode image')
             command = ['outguess', '-k', base64.b64encode(key),
                        '-r', embedded_file.name,
                        data_file.name]
@@ -104,13 +121,17 @@ class OutguessVector(Vector):
             retcode = subprocess.call(command, stdout=open(os.devnull, 'w'),
                                                stderr=subprocess.STDOUT)
 
+            self._logger.info('Outguess exited with code %d', retcode)
+
             os.unlink(embedded_file.name)
 
             if retcode != 0:
                 return None
 
             self._decoded_data = data_file.read()
-            print '!DC data: %s' % hashlib.md5(self._decoded_data).hexdigest()
+            self._logger.info('Decoded data of length %d with MD5 hash: "%s"',
+                             len(self._decoded_data),
+                             hashlib.md5(self._decoded_data).hexdigest())
 
         return self._decoded_data
 
