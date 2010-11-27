@@ -73,13 +73,16 @@ class DownloadThread(threading.Thread):
                                      mac=True)
         try:
             self.data = message_layer.receive(self.address)
-        except MessageLayerError:
-            pass
+        except Exception as inst:
+            self.error = inst
 
         self.driver.close()
 
     def get_data(self):
         return self.data
+
+    def get_error(self):
+        return self.error
 
     def close(self):
         self.driver.close()
@@ -181,11 +184,15 @@ class FetchFrame(wx.Dialog):
     def on_tick(self, arg):
         if not self.thread.is_alive():
             self.data = self.thread.get_data()
+            self.error = self.thread.get_error()
             self.timer.Stop()
             self.EndModal(wx.OK)
 
     def get_data(self):
         return self.data
+
+    def get_error(self):
+        return self.error
 
 class OpenFrame(wx.Dialog):
     def __init__(self, parent, db_filename):

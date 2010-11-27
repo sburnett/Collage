@@ -15,6 +15,9 @@ import pdb
 
 max_age = timedelta(3,)
 
+class FlickrTaskException(Exception):
+    pass
+
 class WebUserFlickrTask(Task):
     def __init__(self, driver, user):
         self._driver = driver
@@ -33,23 +36,42 @@ class WebUserFlickrTask(Task):
         
         d.get('http://www.flickr.com')
 
-        search_field = d.find_element_by_xpath('//input[@name="q"]')
-        search_field.send_keys(self._user)
+        try:
+            search_field = d.find_element_by_xpath('//input[@name="q"]')
+        except:
+            raise FlickrTaskException('Could not find search field')
+
+        try:
+            search_field.send_keys(self._user)
+        except:
+            raise FlickrTaskException('Could not type username in search field')
         
-        search_button = d.find_element_by_xpath('//form/input[@class="Butt"]')
-        search_button.click()
+        try:
+            search_button = d.find_element_by_xpath('//form/input[@class="Butt"]')
+            search_button.click()
+        except:
+            raise FlickrTaskException('Could not click search button')
 
         #####################
         # Search results page
         
-        people_link = d.find_elements_by_partial_link_text('People')
-        people_link[0].click()
+        try:
+            people_link = d.find_elements_by_partial_link_text('People')
+            people_link[0].click()
+        except:
+            raise FlickrTaskException('Could not activate username search')
 
         ######################
         # Advanced search page
 
-        profile_link = d.find_elements_by_partial_link_text(self._user)
-        profile_link[0].click()
+        try:
+            profile_link = d.find_elements_by_partial_link_text(self._user)
+        except:
+            raise FlickrTaskException('Could find username "%s" in search results' % self._user)
+        try:
+            profile_link[0].click()
+        except:
+            raise FlickrTaskException('Could click username "%s" in search results' % self._user)
 
         #####################
         # Search results page
