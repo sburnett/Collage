@@ -8,12 +8,9 @@ content.
 
 import threading
 import Queue
-import datetime
 import sqlite3
 from optparse import OptionParser
 import webbrowser
-import pkgutil
-import os.path
 import urllib
 import re
 import datetime
@@ -27,7 +24,6 @@ import wx.calendar
 from wx.lib.pubsub import Publisher
 
 from collage.messagelayer import MessageLayer, MessageLayerError
-from collage.instrument import CollageStatus
 
 from collage_apps.providers.local import NullVectorProvider
 from collage_apps.instruments import Logger
