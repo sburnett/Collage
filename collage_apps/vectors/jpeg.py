@@ -117,21 +117,31 @@ class OutguessVector(Vector):
             command = ['outguess', '-k', base64.b64encode(key),
                        '-r', embedded_file.name,
                        data_file.name]
-            print '!DC command: ' + str(command)
-            retcode = subprocess.call(command, stdout=open(os.devnull, 'w'),
-                                               stderr=subprocess.STDOUT)
+            self._logger.info('Outguess command is: %s', str(command))
+            try:
+                proc = subprocess.Popen(command)
+            except OSError as exp:
+                self._logger.info('Error executing Outguess: %s', exp.strerror)
+                raise exp
 
-            self._logger.info('Outguess exited with code %d', retcode)
+            stdout, stderr = proc.communicate()
 
-            os.unlink(embedded_file.name)
+            self._logger.info('Outguess exited with code %d', proc.returncode)
+            self._logger.info('Outguess stdout: %s', stdout)
+            self._logger.info('Outguess stderr: %s', stderr)
 
-            if retcode != 0:
+            try:
+                os.unlink(embedded_file.name)
+            except OSError as exp:
+                self._logger.info('Error removing temporary file: %s', exp.strerror)
+
+            if proc.returncode != 0:
                 return None
 
             self._decoded_data = data_file.read()
             self._logger.info('Decoded data of length %d with MD5 hash: "%s"',
-                             len(self._decoded_data),
-                             hashlib.md5(self._decoded_data).hexdigest())
+                              len(self._decoded_data),
+                              hashlib.md5(self._decoded_data).hexdigest())
 
         return self._decoded_data
 

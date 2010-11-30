@@ -282,7 +282,7 @@ class OpenFrame(wx.Dialog):
             return
         self.address = common.format_address(date)
         if date not in self.dates:
-            self.logger.info('News for "%s" hasn\'t been downloaded', self.address)
+            self.logger.info('User attempted to open "%s", which hasn\'t been downloaded yet', self.address)
             dlg = wx.MessageDialog(self,
                                    'News for this date has not been downloaded.',
                                    'Invalid date',
@@ -493,6 +493,7 @@ class ProxyFrame(wx.Frame):
             elif href == 'open':
                 self.on_open(event)
             else:
+                self.logger.info('Opening link in external Web browser')
                 webbrowser.open(href)
         else:
             dlg = wx.MessageDialog(self,
