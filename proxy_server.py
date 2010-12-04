@@ -16,6 +16,7 @@ export COLLAGE_ROOT=%(collage_root)s;
 export PYTHONPATH=%(collage_root)s;
 export FLICKR_API_KEY=%(flickr_api_key)s;
 export FLICKR_SECRET=%(flickr_secret)s;
+export COLLAGE_LOGDIR=%(logdir)s;
 tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n garbage '%(python)s -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
@@ -37,6 +38,7 @@ export COLLAGE_ROOT=%(collage_root)s;
 export PYTHONPATH=%(collage_root)s;
 export FLICKR_API_KEY=%(flickr_api_key)s;
 export FLICKR_SECRET=%(flickr_secret)s;
+export COLLAGE_LOGDIR=%(logdir)s;
 tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n garbage '%(python)s -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
@@ -93,6 +95,9 @@ def parse_options():
     parser.add_option('-f', '--flickr-secret', dest='flickr_secret',
                       action='store', type='string',
                       help='Flickr API secret to use for donation')
+    parser.add_option('-l', '--logdir', dest='logdir',
+                      action='store', type='string',
+                      help='Enable logging to files in this directory')
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
@@ -106,6 +111,7 @@ def parse_options():
     use_su = options.su
     flickr_api_key = options.flickr_api_key
     flickr_secret = options.flickr_secret
+    logdir = options.logdir
 
     if options.config is not None:
         cfg = ConfigParser.ConfigParser()
@@ -142,6 +148,10 @@ def parse_options():
                     and cfg.has_option('proxy', 'flickr_secret'):
                 flickr_secret = cfg.get('proxy', 'flickr_secret')
 
+            if logdir is None \
+                    and cfg.has_option('proxy', 'logdir'):
+                logdir = cfg.get('proxy', 'logdir')
+
     if directory is None:
         if user is None:
             ans = raw_input('Running as current user; create a temporary directory to store state [Y/n]? ').strip()
@@ -171,15 +181,18 @@ def parse_options():
         flickr_api_key = ''
 
     if flickr_secret is None:
-        flickr_secret
+        flickr_secret = ''
+
+    if logdir is None:
+        logdir = ''
 
     directory = os.path.abspath(os.path.expanduser(directory))
     collage_root = os.path.abspath(collage_root)
 
-    return (args[0], user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret)
+    return (args[0], user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret, logdir)
 
 def main():
-    (command, user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret) = parse_options()
+    (command, user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret, logdir) = parse_options()
 
     if command in commands:
         script_text = commands[command]
@@ -200,7 +213,8 @@ def main():
                                  'django_admin': django_admin,
                                  'python': python_exe,
                                  'flickr_api_key': flickr_api_key,
-                                 'flickr_secret': flickr_secret})
+                                 'flickr_secret': flickr_secret,
+                                 'logdir': logdir})
     os.close(ofh)
     os.chmod(script_path, stat.S_IRGRP|stat.S_IROTH|stat.S_IRUSR|stat.S_IWUSR)
 

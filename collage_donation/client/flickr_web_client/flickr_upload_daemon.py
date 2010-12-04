@@ -23,8 +23,11 @@ import tempfile
 import flickrapi
 
 from collage_donation.client.rpc import retrieve
+from collage_apps.proxy.logger import get_logger
 
 import pdb
+
+logger = get_logger(__name__, 'flickr_upload')
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 PAUSE_TIME = 3
@@ -48,6 +51,8 @@ def main():
     conn.execute('''CREATE TABLE IF NOT EXISTS tags
                     (tag TEXT, waiting_id INTEGER)''')
 
+    logger.info('Flickr upload daemon starting')
+
     while True:
         keys = []
         cur = conn.execute('SELECT key FROM waiting')
@@ -57,8 +62,6 @@ def main():
         for key in keys:
             data = retrieve(DONATION_SERVER, key)
             if data != '':
-                print 'Uploading %s...' % key
-
                 datafile = tempfile.NamedTemporaryFile(delete=False)
                 datafile.write(data.data)
                 datafile.close()
@@ -73,13 +76,16 @@ def main():
                                         str(waiting_id)):
                     tags.append(row['tag'])
 
+                logger.info('Uploading photo %s for token %s', key, waiting_row['token'])
+
                 flickr = flickrapi.FlickrAPI(options.api_key, options.api_secret, token=waiting_row['token'], store_token=False)
-                
+
                 try:
                     flickr.auth_checkToken()
                     flickr.upload(filename=datafile.name, title=str(waiting_row['title']), tags=str(' '.join(tags)))
+                    logger.info('Uploading photo %s succeeded', key)
                 except flickrapi.FlickrError:
-                    print 'Upload %s failed!' % key
+                    logger.info('Uploading photo %s failed', key)
 
                 conn.execute('DELETE FROM waiting WHERE rowid = ?', str(waiting_id))
                 conn.execute('DELETE FROM tags WHERE waiting_id = ?', str(waiting_id))

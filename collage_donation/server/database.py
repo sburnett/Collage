@@ -24,7 +24,9 @@ import random
 import time
 import datetime
 
-import pdb
+from collage_apps.proxy.logger import get_logger
+
+logger = get_logger(__name__, 'donation_database')
 
 default_dir = 'vectors'
 db_name = 'donation.sqlite'
@@ -39,7 +41,9 @@ class DonationDatabase(object):
         if not os.path.isdir(db_dir):
             raise OSError('"%s" is not a directory' % db_dir)
 
-        self._conn = sqlite3.connect(os.path.join(db_dir, db_name))
+        filename = os.path.join(db_dir, db_name)
+        logger.info('Initializing database %s', filename)
+        self._conn = sqlite3.connect(filename)
         self._conn.row_factory = sqlite3.Row
 
         self._conn.execute('''CREATE TABLE IF NOT EXISTS applications
@@ -53,6 +57,8 @@ class DonationDatabase(object):
                               (vector_id REFERENCES vectors (rowid),
                                key TEXT,
                                value TEXT)''')
+
+        logger.info('Will be putting vectors in %s', db_dir)
 
         self._vector_dir = db_dir
 
@@ -76,13 +82,15 @@ class DonaterDatabase(DonationDatabase):
 
         cur = self._conn.execute('''SELECT name FROM applications WHERE name = ?''', (application,))
         if cur.fetchone() is None:
-            return 'Invalid application name: %s' % application
+            raise Exception('Invalid application name: %s' % application)
 
         secretkey = '%.16x' % random.randint(0, sys.maxint)
         expiration = min(expiration, self._max_expiration)
         expire_time = (datetime.datetime.utcnow() + expiration).isoformat()
 
         open(self.get_filename(secretkey), 'w').write(data)
+
+        logger.info('Donating (app, expiration, key) (%s, %s, %s)', application, expire_time, secretkey)
 
         cur = self._conn.execute('''INSERT INTO vectors
                                     (application, expiration, key, done)
@@ -91,16 +99,19 @@ class DonaterDatabase(DonationDatabase):
         rowid = cur.lastrowid
 
         for (key, value) in attributes:
+            logger.info('Donating key %s metadata (key, value) (%s, %s)', key, value)
             self._conn.execute('''INSERT INTO metadata
                                   (vector_id, key, value)
                                   VALUES (?, ?, ?)''',
                               (rowid, key, value))
-        
+
         self._conn.commit()
 
         return secretkey
 
     def update_attributes(self, key, value, new_key, new_value):
+        logger.info('Updating metadata (%s, %s) to (%s, %s)', key, value, new_key, new_value)
+
         cur = self._conn.execute('''SELECT vector_id FROM metadata
                                     WHERE key = ? AND value = ?''',
                                     (key, value))
@@ -124,7 +135,9 @@ class DonaterDatabase(DonationDatabase):
                                  (key,))
         row = cur.fetchone()
         if row is not None:
-            return open(self.get_filename(key), 'r').read()
+            filename = self.get_filename(key)
+            logger.info('Collecting vector %s from %s', key, filename)
+            return open(filename, 'r').read()
         else:
             return None
 
@@ -135,7 +148,7 @@ class UploaderDatabase(DonationDatabase):
     def collect(self, attributes):
         """Return a list of vectors that are ready for to be
         uploaded, and are compatible with all of a set of attributes."""
-        
+
         cur = self._conn.execute('''SELECT rowid FROM vectors
                                     WHERE done = 1''')
         vec_sec = set()
@@ -166,6 +179,8 @@ class UploaderDatabase(DonationDatabase):
             if row is not None:
                 keys.append(row['key'])
 
+        logger.info('Vectors %s are compatible with attributes %s for upload', str(keys), str(attributes))
+
         return keys
 
     def get_attributes(self, key):
@@ -187,6 +202,7 @@ class UploaderDatabase(DonationDatabase):
         row = self._conn.execute('''SELECT rowid FROM vectors
                                     WHERE key = ?''', (key,)).fetchone()
         if row is None:
+            logger.info('No key %s to delete', key)
             return
 
         self._conn.execute('''DELETE FROM metadata
@@ -196,7 +212,9 @@ class UploaderDatabase(DonationDatabase):
         try:
             os.unlink(self.get_filename(key))
         except OSError:
-            pass
+            logger.info('File for key %s not deleted', key)
+
+        logger.info('Deleted key %s', key)
 
         self._conn.commit()
 
@@ -210,11 +228,15 @@ class AppDatabase(DonationDatabase):
     def register_application(self, name):
         """Add a new application name if it doesn't already exist."""
 
+        logger.info('Register application %s', name)
+
         self._conn.execute('INSERT OR IGNORE INTO applications (name) VALUES (?)', (name,))
         self._conn.commit()
 
     def unregister_application(self, name):
         """Delete an application name."""
+
+        logger.info('Unregister application %s', name)
 
         self._conn.execute('DELETE FROM applications WHERE name = ?', (name,))
         self._conn.commit()
@@ -222,7 +244,7 @@ class AppDatabase(DonationDatabase):
     def find_vectors(self, attributes):
         """Return a list of vectors that are ready for to be
         encoded, and are compatible with all of a set of attributes."""
-        
+
         cur = self._conn.execute('''SELECT rowid FROM vectors
                                     WHERE done = 0''')
         vec_sec = set()
@@ -254,11 +276,15 @@ class AppDatabase(DonationDatabase):
             if row is not None:
                 keys.append(row['key'])
 
+        logger.info('Vectors %s are compatible with attributes %s for application', str(keys), str(attributes))
+
         return keys
 
     def mark_done(self, key):
         """Notify the database that a given vector is ready has
         been encoded with data and is thus ready for collection."""
+
+        logger.info('Marking vector %s as done', key)
 
         self._conn.execute('''UPDATE vectors
                               SET done = 1
@@ -280,6 +306,8 @@ class CleanupDatabase(DonationDatabase):
                                         < strftime('%s', current_timestamp)''')
 
         for row in cur:
+            logger.info("Marking vector %s as done even though it hasn't been uploaded", row['key'])
+
             self._conn.execute('''UPDATE vectors SET done = 1
                                   WHERE rowid = ?''', (row['rowid'],))
 
