@@ -207,15 +207,6 @@ def upload_file(request):
         logger.info('(%s / %s) Photo too big: %d bytes', request.session['userid'], request.session['token'], len(vector))
         return HttpResponse('{"success": false, "error": "Maximum photo size is 10 MB"}')
 
-    token = request.session['token']
-    userid = request.session['userid']
-
-    f = flickrapi.FlickrAPI(settings.FLICKR_API_KEY, settings.FLICKR_SECRET, token=token, store_token=False)
-    try:
-        f.auth_checkToken()
-    except flickrapi.FlickrError:
-        return HttpResponseBadRequest()
-
     outf = tempfile.NamedTemporaryFile(suffix='.jpg', prefix='upload', dir=UPLOADS_DIR, delete=False)
     outf.write(vector)
     outf.close()
