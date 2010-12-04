@@ -35,7 +35,7 @@ PAUSE_TIME = 3
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='waiting_keys.sqlite', api_key=os.environ['FLICKR_API_KEY'], api_secret=os.environ['FLICKR_SECRET'])
+    parser.set_defaults(database='waiting_keys.sqlite', api_key=os.environ['COMMUNITY_FLICKR_API_KEY'], api_secret=os.environ['COMMUNITY_FLICKR_SECRET'])
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
     parser.add_option('-k', '--flickr-api-key', dest='api_key', action='store', type='string', help='Flickr API key')
     parser.add_option('-s', '--flickr-secret', dest='api_secret', action='store', type='string', help='Flickr API secret')

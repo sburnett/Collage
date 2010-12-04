@@ -7,8 +7,8 @@ Feel free to adjust to your local environment.
 import os.path
 import os
 PROJECT_PATH = os.path.abspath(os.path.dirname(__file__))
-FLICKR_API_KEY = os.environ['FLICKR_API_KEY']
-FLICKR_SECRET = os.environ['FLICKR_SECRET']
+FLICKR_API_KEY = os.environ['COMMUNITY_FLICKR_API_KEY']
+FLICKR_SECRET = os.environ['COMMUNITY_FLICKR_SECRET']
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
