@@ -14,8 +14,10 @@ export COLLAGE_USER=%(user)s;
 export COLLAGE_HOME=%(directory)s;
 export COLLAGE_ROOT=%(collage_root)s;
 export PYTHONPATH=%(collage_root)s;
-export FLICKR_API_KEY=%(flickr_api_key)s;
-export FLICKR_SECRET=%(flickr_secret)s;
+export COMMUNITY_FLICKR_API_KEY=%(community_flickr_api_key)s;
+export COMMUNITY_FLICKR_SECRET=%(community_flickr_secret)s;
+export CENTRALIZED_FLICKR_API_KEY=%(centralized_flickr_api_key)s;
+export CENTRALIZED_FLICKR_SECRET=%(centralized_flickr_secret)s;
 export COLLAGE_LOGDIR=%(logdir)s;
 tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
@@ -36,8 +38,10 @@ export COLLAGE_USER=%(user)s;
 export COLLAGE_HOME=%(directory)s;
 export COLLAGE_ROOT=%(collage_root)s;
 export PYTHONPATH=%(collage_root)s;
-export FLICKR_API_KEY=%(flickr_api_key)s;
-export FLICKR_SECRET=%(flickr_secret)s;
+export COMMUNITY_FLICKR_API_KEY=%(community_flickr_api_key)s;
+export COMMUNITY_FLICKR_SECRET=%(community_flickr_secret)s;
+export CENTRALIZED_FLICKR_API_KEY=%(centralized_flickr_api_key)s;
+export CENTRALIZED_FLICKR_SECRET=%(centralized_flickr_secret)s;
 export COLLAGE_LOGDIR=%(logdir)s;
 tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
 tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
@@ -61,138 +65,71 @@ commands = { 'run': run_script_text
 def parse_options():
     usage = 'usage: %%s [options] <%s>' % ('|'.join(commands.keys()),)
     parser = OptionParser(usage=usage)
-    parser.set_defaults(config=None,
-                        user=None,
-                        directory=None,
-                        root=None,
-                        django=None,
-                        flickr_api_key=None,
-                        flickr_secret=None)
+    parser.set_defaults(config=None)
     parser.add_option('-c', '--configuration', dest='config',
                       action='store', type='string',
                       help='Location of configuration file')
-    parser.add_option('-u', '--user', dest='user',
-                      action='store', type='string',
-                      help='Switch to this user when running proxy')
-    parser.add_option('-d', '--directory', dest='directory',
-                      action='store', type='string',
-                      help='Write proxy state to this directory')
-    parser.add_option('-r', '--collage-root', dest='root',
-                      action='store', type='string',
-                      help='Use an alternative Collage root')
-    parser.add_option('-a', '--django-admin', dest='django',
-                      action='store', type='string',
-                      help='django-admin executable to use')
-    parser.add_option('-p', '--python', dest='python',
-                      action='store', type='string',
-                      help='Path to python executable')
-    parser.add_option('-s', '--use-su', dest='su',
-                      action='store_true',
-                      help='Whether or not to use su (default is sudo).')
-    parser.add_option('-k', '--flickr-api-key', dest='flickr_api_key',
-                      action='store', type='string',
-                      help='Flickr API key to use for donation')
-    parser.add_option('-f', '--flickr-secret', dest='flickr_secret',
-                      action='store', type='string',
-                      help='Flickr API secret to use for donation')
-    parser.add_option('-l', '--logdir', dest='logdir',
-                      action='store', type='string',
-                      help='Enable logging to files in this directory')
-    (options, args) = parser.parse_args()
+    options, rest = parser.parse_args()
 
-    if len(args) != 1:
+    if len(rest) != 1:
         parser.error('Must specify command')
 
-    user = options.user
-    directory = options.directory
-    collage_root = options.root
-    django_admin = options.django
-    python_exe = options.python
-    use_su = options.su
-    flickr_api_key = options.flickr_api_key
-    flickr_secret = options.flickr_secret
-    logdir = options.logdir
+    command = rest[0]
+    args = {}
 
     if options.config is not None:
         cfg = ConfigParser.ConfigParser()
         cfg.read(options.config)
 
-        if cfg.has_section('proxy'):
-            if user is None and cfg.has_option('proxy', 'user'):
-                user = cfg.get('proxy', 'user')
+        def parse_arg(section, name, arg=None, default=None, boolean=False):
+            if arg is None:
+                arg=name
+            if cfg.has_section(section) and cfg.has_option(section, name):
+                if boolean:
+                    args[arg] = cfg.getboolean(section, name)
+                else:
+                    args[arg] = cfg.get(section, name)
 
-            if directory is None \
-                    and cfg.has_option('proxy', 'directory'):
-                options.directory = cfg.get('proxy', 'directory')
+        parse_arg('proxy', 'user')
+        parse_arg('proxy', 'directory')
+        parse_arg('proxy', 'root')
+        parse_arg('proxy', 'django_admin')
+        parse_arg('proxy', 'python')
+        parse_arg('proxy', 'use_su', boolean=True)
+        parse_arg('proxy', 'logdir')
+        parse_arg('centralized', 'flickr_api_key', 'centralized_flickr_api_key')
+        parse_arg('centralized', 'flickr_secret', 'centralized_flickr_secret')
+        parse_arg('community', 'flickr_api_key', 'community_flickr_api_key')
+        parse_arg('community', 'flickr_secret', 'community_flickr_secret')
 
-            if collage_root is None and cfg.has_option('proxy', 'root'):
-                collage_root = cfg.get('proxy', 'root')
-
-            if django_admin is None \
-                    and cfg.has_option('proxy', 'django_admin'):
-                django_admin = cfg.get('proxy', 'django_admin')
-
-            if python_exe is None \
-                    and cfg.has_option('proxy', 'python'):
-                python_exe = cfg.get('proxy', 'python')
-
-            if use_su is None \
-                    and cfg.has_option('proxy', 'use_su'):
-                use_su = cfg.getboolean('proxy', 'use_su')
-
-            if flickr_api_key is None \
-                    and cfg.has_option('proxy', 'flickr_api_key'):
-                flickr_api_key = cfg.get('proxy', 'flickr_api_key')
-
-            if flickr_secret is None \
-                    and cfg.has_option('proxy', 'flickr_secret'):
-                flickr_secret = cfg.get('proxy', 'flickr_secret')
-
-            if logdir is None \
-                    and cfg.has_option('proxy', 'logdir'):
-                logdir = cfg.get('proxy', 'logdir')
-
-    if directory is None:
-        if user is None:
+    if 'directory' not in args:
+        if 'user' not in args:
             ans = raw_input('Running as current user; create a temporary directory to store state [Y/n]? ').strip()
             if len(ans) == 0 or ans[0] != 'n':
-                directory = tempfile.mkdtemp()
+                args['directory'] = tempfile.mkdtemp()
             else:
-                directory = '~'
+                args['directory'] = '~'
         else:
-            directory = '~%s' % user
+            args['directory'] = '~%s' % args['user']
 
-    if user is None:
-        user = pwd.getpwuid(os.getuid()).pw_name
+    args.setdefault('user', pwd.getpwuid(os.getuid()).pw_name)
+    args.setdefault('collage_root', os.path.dirname(__file__))
+    args.setdefault('django_admin', 'django-admin')
+    args.setdefault('python_exe', 'python')
+    args.setdefault('use_su', False)
+    args.setdefault('centralized_flickr_api_key', '')
+    args.setdefault('centralized_flickr_secret', '')
+    args.setdefault('community_flickr_api_key', '')
+    args.setdefault('community_flickr_secret', '')
+    args.setdefault('logdir', '')
 
-    if collage_root is None:
-        collage_root = os.path.dirname(__file__)
+    args['directory'] = os.path.abspath(os.path.expanduser(args['directory']))
+    args['collage_root'] = os.path.abspath(args['collage_root'])
 
-    if django_admin is None:
-        django_admin = 'django-admin'
-
-    if python_exe is None:
-        python_exe = 'python'
-
-    if use_su is None:
-        use_su = False
-
-    if flickr_api_key is None:
-        flickr_api_key = ''
-
-    if flickr_secret is None:
-        flickr_secret = ''
-
-    if logdir is None:
-        logdir = ''
-
-    directory = os.path.abspath(os.path.expanduser(directory))
-    collage_root = os.path.abspath(collage_root)
-
-    return (args[0], user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret, logdir)
+    return command, args
 
 def main():
-    (command, user, directory, collage_root, django_admin, python_exe, use_su, flickr_api_key, flickr_secret, logdir) = parse_options()
+    command, args = parse_options()
 
     if command in commands:
         script_text = commands[command]
@@ -202,26 +139,19 @@ def main():
 
     print 'Using the following settings:'
     print 'Doing command %s' % command
-    print 'Running as user %s' % user
-    print 'Writing proxy state to %s' % directory
-    print 'Using Collage root %s' % collage_root
+    print 'Running as user %s' % args['user']
+    print 'Writing proxy state to %s' % args['directory']
+    print 'Using Collage root %s' % args['collage_root']
 
     (ofh, script_path) = tempfile.mkstemp(prefix='proxy')
-    os.write(ofh, script_text % {'user': user,
-                                 'directory': directory,
-                                 'collage_root': collage_root,
-                                 'django_admin': django_admin,
-                                 'python': python_exe,
-                                 'flickr_api_key': flickr_api_key,
-                                 'flickr_secret': flickr_secret,
-                                 'logdir': logdir})
+    os.write(ofh, script_text % args)
     os.close(ofh)
     os.chmod(script_path, stat.S_IRGRP|stat.S_IROTH|stat.S_IRUSR|stat.S_IWUSR)
 
-    if use_su:
-        cmd = 'su %s %s' % (user, script_path)
+    if args['use_su']:
+        cmd = 'su %s %s' % (args['user'], script_path)
     else:
-        cmd = 'sudo -u %s -i -- bash %s' % (user, script_path)
+        cmd = 'sudo -u %s -i -- bash %s' % (args['user'], script_path)
     print 'Running command %s' % cmd
     subprocess.call(cmd, shell=True)
     print 'Done with command'
