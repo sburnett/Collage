@@ -23,11 +23,11 @@ import tempfile
 import flickrapi
 
 from collage_donation.client.rpc import retrieve
+from collage_apps.proxy.logger import get_logger
 
 import pdb
 
-api_key = 'ebc4519ce69a3485469c4509e8038f9f'
-api_secret = '083b2c8757e2971f'
+logger = get_logger(__name__, 'flickr_upload')
 
 DONATION_SERVER = 'https://127.0.0.1:8000/server.py'
 PAUSE_TIME = 3
@@ -35,8 +35,10 @@ PAUSE_TIME = 3
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='waiting_keys.sqlite')
+    parser.set_defaults(database='waiting_keys.sqlite', api_key=os.environ['FLICKR_API_KEY'], api_secret=os.environ['FLICKR_SECRET'])
     parser.add_option('-d', '--database', dest='database', action='store', type='string', help='Waiting keys database')
+    parser.add_option('-k', '--flickr-api-key', dest='api_key', action='store', type='string', help='Flickr API key')
+    parser.add_option('-s', '--flickr-secret', dest='api_secret', action='store', type='string', help='Flickr API secret')
     (options, args) = parser.parse_args()
 
     if len(args) != 0:
@@ -48,7 +50,9 @@ def main():
                     (key TEXT, title TEXT, token TEXT)''')
     conn.execute('''CREATE TABLE IF NOT EXISTS tags
                     (tag TEXT, waiting_id INTEGER)''')
-    
+
+    logger.info('Flickr upload daemon starting')
+
     while True:
         keys = []
         cur = conn.execute('SELECT key FROM waiting')
@@ -58,8 +62,6 @@ def main():
         for key in keys:
             data = retrieve(DONATION_SERVER, key)
             if data != '':
-                print 'Uploading %s...' % key
-
                 datafile = tempfile.NamedTemporaryFile(delete=False)
                 datafile.write(data.data)
                 datafile.close()
@@ -74,13 +76,16 @@ def main():
                                         str(waiting_id)):
                     tags.append(row['tag'])
 
-                flickr = flickrapi.FlickrAPI(api_key, api_secret, token=waiting_row['token'], store_token=False)
-                
+                logger.info('Uploading photo %s for token %s', key, waiting_row['token'])
+
+                flickr = flickrapi.FlickrAPI(options.api_key, options.api_secret, token=waiting_row['token'], store_token=False)
+
                 try:
                     flickr.auth_checkToken()
                     flickr.upload(filename=datafile.name, title=str(waiting_row['title']), tags=str(' '.join(tags)))
+                    logger.info('Uploading photo %s succeeded', key)
                 except flickrapi.FlickrError:
-                    print 'Upload %s failed!' % key
+                    logger.info('Uploading photo %s failed', key)
 
                 conn.execute('DELETE FROM waiting WHERE rowid = ?', str(waiting_id))
                 conn.execute('DELETE FROM tags WHERE waiting_id = ?', str(waiting_id))

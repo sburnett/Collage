@@ -24,6 +24,12 @@ class Timestamper(instrument.Instrument):
     def upload_chunks(self, num_bytes):
         self.stamp('chunks', num_bytes)
 
+    def message(self, msg):
+        self.stamp('message', msg)
+
+    def error(self, msg):
+        self.stamp('error', msg)
+
 class Logger(instrument.Instrument):
     """For each logging event, post a wxPython event.
 
@@ -48,3 +54,9 @@ class Logger(instrument.Instrument):
 
     def process_vector(self, num_bytes):
         wx.CallAfter(Publisher().sendMessage, 'vector', num_bytes)
+
+    def message(self, msg):
+        wx.CallAfter(Publisher().sendMessage, 'message', msg)
+
+    def error(self, msg):
+        wx.CallAfter(Publisher().sendMessage, 'error', msg)

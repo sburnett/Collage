@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Demo Collage application that reads news articles published by the server.
 
 We call this application a "proxy", because it could be used to serve any Web
@@ -8,31 +8,27 @@ content.
 
 import threading
 import Queue
-import datetime
 import sqlite3
 from optparse import OptionParser
 import webbrowser
-import pkgutil
-import os.path
 import urllib
 import re
 import datetime
+import logging
 
 from selenium.firefox.webdriver import WebDriver
+
 import wx
 import wx.html
 import wx.calendar
 from wx.lib.pubsub import Publisher
 
 from collage.messagelayer import MessageLayer, MessageLayerError
-from collage.instrument import CollageStatus
 
 from collage_apps.providers.local import NullVectorProvider
 from collage_apps.instruments import Logger
 
 import proxy_common as common
-
-import pdb
 
 class DownloadThread(threading.Thread):
     def __init__(self, log_queue, db_filename, address):
@@ -41,9 +37,13 @@ class DownloadThread(threading.Thread):
         self.db_filename = db_filename
         self.address = address
         self.data = None
+        self.error = None
+        self.logger = logging.getLogger('collage_proxy')
 
     def run(self):
         self.driver = WebDriver()
+
+        self.logger.info('Starting download thread')
 
         database = Database(self.db_filename)
         task_list = database.get_active_task_list()
@@ -72,14 +72,19 @@ class DownloadThread(threading.Thread):
                                      Logger(self.log_queue),
                                      mac=True)
         try:
+            self.logger.info('Download thread fetching address "%s"' % self.address)
             self.data = message_layer.receive(self.address)
-        except MessageLayerError:
-            pass
+        except Exception as inst:
+            self.logger.info('Download thread had error "%s"' % inst.message)
+            self.error = inst
 
         self.driver.close()
 
     def get_data(self):
         return self.data
+
+    def get_error(self):
+        return self.error
 
     def close(self):
         self.driver.close()
@@ -97,6 +102,9 @@ class FetchFrame(wx.Dialog):
         self.chunks_decoded = 0
         self.cover_received = 0
         self.data_decoded = 0
+
+        self.logger = logging.getLogger('collage_proxy')
+        self.logger.info('Building fetch window')
 
         self.sizer = wx.FlexGridSizer(wx.VERTICAL)
         self.sizer.AddGrowableRow(1)
@@ -143,49 +151,79 @@ class FetchFrame(wx.Dialog):
         Publisher().subscribe(self.update_status, 'status')
         Publisher().subscribe(self.update_vector, 'vector')
         Publisher().subscribe(self.update_chunk, 'chunk')
+        Publisher().subscribe(self.log_message, 'message')
+        Publisher().subscribe(self.log_error, 'error')
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_tick, self.timer)
         self.timer.Start(milliseconds=1000, oneShot=False)
 
     def on_cancel(self, event):
+        self.logger.info('User canceled fetch')
         self.thread.close()
         self.EndModal(wx.CANCEL)
 
     def on_close(self, event):
+        self.logger.info('Closing fetch thread')
         self.thread.close()
 
     def update_status(self, msg):
+        self.logger.info('Received status update from download thread: %s', msg.data)
         self.status_label.SetLabel(msg.data)
 
     def update_vector(self, msg):
+        self.logger.info('Received %d byte vector', int(msg.data))
         self.vectors_downloaded += 1
         self.cover_received += int(msg.data)
         if self.vectors_downloaded == 1:
-            self.vectors_label.SetLabel('%d vector downloaded' % self.vectors_downloaded)
+            message = '%d vector downloaded' % self.vectors_downloaded
+            self.vectors_label.SetLabel(message)
+            self.logger.info(message)
         else:
-            self.vectors_label.SetLabel('%d vectors downloaded' % self.vectors_downloaded)
+            message = '%d vectors downloaded' % self.vectors_downloaded
+            self.vectors_label.SetLabel(message)
+            self.logger.info(message)
         if self.cover_received > 0:
-            self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
+            message = '%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),)
+            self.efficiency_label.SetLabel(message)
+            self.logger.info(message)
 
     def update_chunk(self, msg):
+        self.logger.info('Decoded %d chunks from a vector', int(msg.data))
         self.chunks_decoded += 1
         self.data_decoded += int(msg.data)
         if self.chunks_decoded == 1:
-            self.chunks_label.SetLabel('%d chunk decoded' % self.chunks_decoded)
+            message = '%d chunk decoded' % self.chunks_decoded
+            self.chunks_label.SetLabel(message)
+            self.logger.info(message)
         else:
-            self.chunks_label.SetLabel('%d chunks decoded' % self.chunks_decoded)
+            message = '%d chunks decoded' % self.chunks_decoded
+            self.chunks_label.SetLabel(message)
+            self.logger.info(message)
         if self.cover_received > 0:
-            self.efficiency_label.SetLabel('%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),))
+            message = '%2.2f%% recovery efficiency' % (100*float(self.data_decoded)/float(self.cover_received),)
+            self.efficiency_label.SetLabel(message)
+            self.logger.info(message)
+
+    def log_message(self, msg):
+        self.logger.info('Collage message: %s', msg)
+
+    def log_error(self, msg):
+        self.logger.error('Collage error: %s', msg)
 
     def on_tick(self, arg):
         if not self.thread.is_alive():
+            self.logger.info('Download thread has exited')
             self.data = self.thread.get_data()
+            self.error = self.thread.get_error()
             self.timer.Stop()
             self.EndModal(wx.OK)
 
     def get_data(self):
         return self.data
+
+    def get_error(self):
+        return self.error
 
 class OpenFrame(wx.Dialog):
     def __init__(self, parent, db_filename):
@@ -194,9 +232,13 @@ class OpenFrame(wx.Dialog):
                            style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
 
         self.database = Database(db_filename)
+        self.logger = logging.getLogger('collage_proxy')
+
+        self.logger.info('Building open dialog')
 
         self.dates = []
         for (address, fetched) in self.database.get_addresses().items():
+            self.logger.info('Date "%s" available', address)
             self.dates.append(common.parse_address(address))
 
         self.sizer = wx.FlexGridSizer(wx.VERTICAL)
@@ -240,6 +282,7 @@ class OpenFrame(wx.Dialog):
             return
         self.address = common.format_address(date)
         if date not in self.dates:
+            self.logger.info('User attempted to open "%s", which hasn\'t been downloaded yet', self.address)
             dlg = wx.MessageDialog(self,
                                    'News for this date has not been downloaded.',
                                    'Invalid date',
@@ -247,6 +290,7 @@ class OpenFrame(wx.Dialog):
             dlg.ShowModal()
             dlg.Destroy()
         else:
+            self.logger.info('User wants to view news from "%s"', self.address)
             self.EndModal(wx.OK)
 
     def on_change(self, event):
@@ -266,6 +310,7 @@ class OpenFrame(wx.Dialog):
         return self.address
 
     def on_cancel(self, event):
+        self.logger.info('User canceled date selection')
         self.EndModal(wx.CANCEL)
 
 welcome_page_source = '''<h1>Collage News Reader</h1>
@@ -285,6 +330,7 @@ class ProxyFrame(wx.Frame):
         self.database = Database(db_filename)
         self.local_dir = local_dir
         self.custom = custom
+        self.logger = logging.getLogger('collage_proxy')
 
         my_lists = ['centralized', 'community', 'local', 'custom']
         task_lists = self.database.get_task_lists()
@@ -298,6 +344,8 @@ class ProxyFrame(wx.Frame):
         self.database.set_loaded_task_modules('community', ['flickr_new'])
         self.database.set_loaded_task_modules('local', ['local'])
         self.database.set_loaded_task_modules('custom', ['picasa'])
+
+        self.logger.info('Building main window')
 
         filemenu = wx.Menu()
         item = filemenu.Append(wx.ID_ANY, '&Fetch latest news...', 'Fetch the latest news')
@@ -320,21 +368,27 @@ class ProxyFrame(wx.Frame):
         self.Show(True)
 
     def on_open(self, event):
+        self.logger.info('Showing "open" window')
         dlg = OpenFrame(self, self.db_filename)
         result = dlg.ShowModal()
         dlg.Destroy()
         if result == wx.OK:
             self.open(dlg.get_address())
+        else:
+            self.logger.info('User canceled document open')
 
     def open(self, address):
+        self.logger.info('Opening document "%s"', address)
         contents = self.database.get_file(address)
         if contents is not None:
+            self.logger.info('Loading previously fetched document') 
             self.SetTitle('%s - %s' % (address, self.my_title))
             self.control.SetPage(contents)
             self.showing_welcome_page = False
 
     def on_fetch(self, event):
         address = common.format_address(datetime.datetime.utcnow())
+        self.logger.info('User wants to fetch document "%s"', address)
 
         if not self.database.have_address(address):
             descriptions = {}
@@ -345,6 +399,7 @@ class ProxyFrame(wx.Frame):
             if self.custom:
                 descriptions['Using advanced tasks'] = 'custom'
 
+            self.logger.info('Asking user how he wants to fetch the message')
             dlg = wx.SingleChoiceDialog(self, 'How do you want to fetch the news?\n\nThere is a tradeoff between deniability and speed:\nThe faster you download the news, the it will be easier\nfor a censor to identify your activity.', 'Task modules', sorted(descriptions.keys()))
             if dlg.ShowModal() != wx.ID_OK:
                 dlg.Destroy()
@@ -352,29 +407,39 @@ class ProxyFrame(wx.Frame):
             task_list = descriptions[dlg.GetStringSelection()]
             dlg.Destroy()
 
+            self.logger.info('User has elected to fetch using method "%s"' % task_list)
+
             self.database.set_active_task_list(task_list)
             self.update_task_list(task_list)
 
             self.fetch(address)
+        else:
+            self.logger.info('Address "%s" has already been fetched' % address)
 
         self.open(address)
 
     def fetch(self, address):
+        self.logger.info('Fetching document "%s"', address)
+
         dlg = FetchFrame(self, self.db_filename, address)
         rc = dlg.ShowModal()
         data = dlg.get_data()
         if rc == wx.OK:
             if data is None:
+                self.logger.error('There was an error downloading address "%s"' % address)
                 dlg = wx.MessageDialog(self,
-                                       'Cannot download the news from %s. Try activating additional task modules.' % address,
+                                       'Cannot download the news from %s.' % address,
                                        'Fetch error',
                                        style=wx.OK|wx.ICON_ERROR)
                 dlg.ShowModal()
                 dlg.Destroy()
             else:
+                self.logger.info('Successfully fetched "%s"' % address)
                 self.database.add_file(address, data)
 
     def update_task_list(self, task_list):
+        self.logger.info('Upating task list "%s"', task_list)
+
         last_update = self.database.get_task_list_updated(task_list)
         #if last_update is not None \
         #        and datetime.datetime.utcnow() - last_update < self.my_min_update_time:
@@ -409,21 +474,26 @@ class ProxyFrame(wx.Frame):
             task = adv_tasks[dlg.GetSelection()]
             tasks.append(task)
 
+        self.logger.info('Updating tasks: %s', str(tasks))
+
         self.database.delete_tasks(task_list)
         self.database.add_tasks(task_list, tasks)
         self.database.updated_task_list(task_list)
 
     def on_exit(self, event):
+        self.logger.info('User closed application')
         self.Close(True)
 
     def on_link_click(self, event):
+        href = event.GetLinkInfo().GetHref()
+        self.logger.info('User clicked link "%s"', href)
         if self.showing_welcome_page:
-            href = event.GetLinkInfo().GetHref()
             if href == 'fetch':
                 self.on_fetch(event)
             elif href == 'open':
                 self.on_open(event)
             else:
+                self.logger.info('Opening link in external Web browser')
                 webbrowser.open(href)
         else:
             dlg = wx.MessageDialog(self,
@@ -433,17 +503,21 @@ class ProxyFrame(wx.Frame):
             rc = dlg.ShowModal()
             dlg.Destroy()
             if rc == wx.ID_YES:
-                webbrowser.open(event.GetLinkInfo().GetHref())
+                self.logger.info('Opening link in external Web browser')
+                webbrowser.open(href)
 
 class Snippet(object):
     def __init__(self, module, command):
         self.module = module
         self.command = command
+        self.logger = logging.getLogger('collage_proxy')
 
     def get_module(self):
         return self.module
 
     def execute(self, driver):
+        self.logger.info('Executing snippet "%s"' % self.module)
+
         pkg = __import__('collage_apps.proxy.taskmodules', fromlist=[str(self.module)])
         mod = pkg.__getattribute__(self.module)
         return eval(self.command, mod.__dict__, {'driver': driver})
@@ -572,7 +646,7 @@ class Database(object):
 def main():
     usage = 'usage: %s [options]'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(database='proxy_client.sqlite', localdir=None, custom=False)
+    parser.set_defaults(database='proxy_client.sqlite', localdir=None, logging=False, custom=False)
     parser.add_option('-d', '--database',
                       dest='database',
                       action='store',
@@ -583,11 +657,25 @@ def main():
                       action='store',
                       type='string',
                       help='Local content host directory (testing)')
+    parser.add_option('-L', '--logging',
+                      dest='logging',
+                      action='store_true',
+                      help='Enable debug logging to proxy_client.log')
     parser.add_option('-a', '--advanced',
                       dest='custom',
                       action='store_true',
                       help='Enable advanced tasks (not recommended)')
     (options, args) = parser.parse_args()
+
+    logger = logging.getLogger('collage_proxy')
+    if options.logging:
+        handler = logging.FileHandler('proxy_client.log', 'w')
+        formatter = logging.Formatter("[%(asctime)s] (%(name)s) %(levelname)s: %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+    logger.info('Starting logging')
 
     app = wx.App(False)
     frame = ProxyFrame(None, options.database, options.localdir, options.custom)

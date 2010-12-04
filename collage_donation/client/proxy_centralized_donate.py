@@ -106,8 +106,8 @@ def auth_flickr():
     
     """
 
-    api_key = '3219bff0c8e25adc61ca3845f1c810c5'
-    api_secret = '7ed8aaed85fa15c6'
+    api_key = os.environ['FLICKR_API_KEY']
+    api_secret = os.environ['FLICKR_SECRET']
 
     flickr = flickrapi.FlickrAPI(api_key, api_secret)
     (token, frob) = flickr.get_token_part_one(perms='delete')

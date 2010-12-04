@@ -6,7 +6,7 @@ ez_setup.use_setuptools()
 from setuptools import setup, find_packages
 setup(
         name='CollageProxyClient',
-        version='1.0',
+        version='1.1',
         description='A censorship-resistent message layer',
         author='Sam Burnett',
         url='http://www.gtnoise.net/collage',

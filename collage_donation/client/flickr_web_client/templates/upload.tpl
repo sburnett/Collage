@@ -62,6 +62,7 @@
         <style>
             #tagsbox {
                 width: 100%;
+                min-width: 700px;
                 border: 1px solid black;
                 padding: 5px;
                 margin-top: 5px;
@@ -96,11 +97,19 @@
             a.thumbCancel:hover {
                 background-position: 0px 0px;
             }
+            div.userbox {
+                float: right;
+                padding-top: 4px;
+            }
         </style>
     </head>
 
     <body class="yui-skin-sam">
+        <div class="userbox">
+        Logged in as <b>{{username}}</b> (<a href="/logout">Logout</a>)
+        </div>
         <h1>Collage Photo Donation</h1>
+
         <form id="form1" action="/upload" method="POST" enctype="multipart/form-data">
             {% if error %}
                 <span class="error">{{error}}</span>
@@ -124,7 +133,5 @@
             <p><b>Step 5:</b> Donate your photos by clicking the button below.</p>
             <input type="submit" name="submit" value="Donate photos"/>
         </form>
-
-        <a href="/logout">Logout</a>
     </body>
 </html>

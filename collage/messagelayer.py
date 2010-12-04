@@ -421,7 +421,7 @@ class MessageLayer(object):
                     self._instrument.change_status(CollageStatus.DOWNLOADING)
 
         self._instrument.change_status(CollageStatus.FAILURE)
-        raise MessageLayerError('Could not receive message using available tasks')
+        raise MessageLayerError('The available tasks could not find enough vectors to decode the message')
         
 class Task(object):
     """Tasks used to upload and download vectors on UGC hosts.
