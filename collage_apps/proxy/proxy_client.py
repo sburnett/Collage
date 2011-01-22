@@ -15,8 +15,10 @@ import urllib
 import re
 import datetime
 import logging
+import time
 
 from selenium.firefox.webdriver import WebDriver
+from selenium.common.exceptions import NoSuchElementException
 
 import wx
 import wx.html
@@ -30,6 +32,33 @@ from collage_apps.instruments import Logger
 
 import proxy_common as common
 
+class BetterWebDriver(WebDriver):
+    def patient_find_element_by_xpath(self, path, timeout=60):
+        """Sleep for 1 second increments until the provided XPath
+        query matches on the current page. This should take care of
+        weird AJAX loading issues."""
+
+        for i in range(timeout):
+            try:
+                el = self.find_element_by_xpath(path)
+                time.sleep(1)
+                return el
+            except NoSuchElementException:
+                time.sleep(1)
+        raise NoSuchElementException
+
+    def wait_for_xpath(self, path, timeout=60):
+        """A non-returning version of the above, with a more intuitive name."""
+        self.patient_find_element_by_xpath(path, timeout)
+
+    def real_back(self):
+        """Keep clicking the back button until the URL changes. This should
+        take care of Picasa's injection of extra history elements."""
+
+        orig_url = self.get_current_url()
+        while self.get_current_url() == orig_url:
+            self.back()
+
 class DownloadThread(threading.Thread):
     def __init__(self, log_queue, db_filename, address):
         super(DownloadThread, self).__init__()
@@ -41,7 +70,7 @@ class DownloadThread(threading.Thread):
         self.logger = logging.getLogger('collage_proxy')
 
     def run(self):
-        self.driver = WebDriver()
+        self.driver = BetterWebDriver()
 
         self.logger.info('Starting download thread')
 
@@ -465,7 +494,7 @@ class ProxyFrame(wx.Frame):
             adv_tasks = []
 
             # Add your own advanced tasks here.
-            adv_tasks.append(('picasa', 'PicasaUserTask(driver, %s)' % repr('srburnet')))
+            adv_tasks.append(('picasa', 'WebTagsPicasaTask(driver, %s)' % repr(('nature', 'mountains'))))
 
             dlg = wx.SingleChoiceDialog(self, 'Select the task you want to use', 'Advanced tasks', map(lambda t: t[1], adv_tasks))
             if dlg.ShowModal() != wx.ID_OK:

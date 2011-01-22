@@ -2,15 +2,21 @@
 
 import hashlib
 import base64
-from datetime import datetime, timedelta
+import time
+import tempfile
+import os
+import re
 
 from collage.messagelayer import Task
-
 from collage_apps.vectors.jpeg import OutguessVector
 
 from selenium.common.exceptions import NoSuchElementException
 
-max_age = timedelta(3,)
+import pdb
+
+#max_age = timedelta(3,)
+
+page_html = '<html><body><img src="%s"/></body></html>'
 
 class WebTagsPicasaTask(Task):
     def __init__(self, driver, tags):
@@ -25,119 +31,67 @@ class WebTagsPicasaTask(Task):
 
         d = self._driver
 
-        ###########
+        #########################
         # Main page
-        
+
         d.get('http://picasaweb.google.com')
 
         search_field = d.find_element_by_id('sq')
         search_field.send_keys(' '.join(self._tags))
-        
         search_button = d.find_element_by_xpath('//form/table/tbody/tr/td/font[@class="bodytext"]/input[@type="submit"]')
         search_button.click()
 
-        #####################
+        #########################
         # Search results page
 
         # Toggle date ordering
-        options_toggle = d.find_element_by_id(":7")
-        options_toggle.click()
-
         order_date = d.find_element_by_partial_link_text('Order by date')
         order_date.click()
-        
-        search_links = d.find_elements_by_partial_link_text('Advanced Search')
-        if len(search_links) > 0:
-            search_links[0].click()
 
-        #####################
-        # Search results page
-        
-        thumb_path = '(//img[@class="goog-icon-list-icon-img"])[%d]'
+        thumb_path = '(//a[@class="goog-icon-list-icon-link"])[%d]'
 
         pages_remaining = True
         while pages_remaining:
-            thumbs_remaining = True
-            idx = 0
-            while thumbs_remaining:
-                idx += 1
+            for idx in range(25):
+                d.wait_for_xpath('//a[@class="goog-icon-list-icon-link"]')
 
                 try:
-                    thumb = d.find_element_by_xpath(thumb_path % idx)
+                    thumb = d.find_element_by_xpath(thumb_path % (idx+1))
                 except NoSuchElementException:
-                    thumbs_remaining = False
-                    continue
+                    break
 
                 thumb.click()
 
-                ####################
-                # Photo summary page
+                #######################
+                # Photo page
 
-                download_menu = d.find_element_by_xpath('//div[@class="goog-inline-block-lhcl_toolbar_text][2]')
+                img = d.patient_find_element_by_xpath('//div[@class="scaledimage-onscreenpane"]/img')
+                src = img.get_attribute('src')
+                full_src = re.sub(r'/[^/]+/([^/]+)$', r'/d/\1', src)
+
+                html_file = tempfile.NamedTemporaryFile(delete=False)
+                html_file.write(page_html % full_src)
+                html_file.close()
+
+                # Load locally-hosted full-sized photo page
+                d.get('file://%s' % html_file.name)
                 try:
-                    uploaded_link = d.find_element_by_xpath('//a[@property="dc:date"]')
-                    uploaded_string = uploaded_link.get_text()
-                    uploaded_date = datetime.strptime(uploaded_string, '%B %d, %Y')
-                    print 'Photo uploaded on: %s' % (str(uploaded_date),)
-                    if datetime.now() - uploaded_date > max_age:
-                        return
-                except NoSuchElementException:
-                    pass
-
-                try:
-                    zoom_button = d.find_element_by_id('photo_gne_button_zoom')
-                except NoSuchElementException:
-                    d.back()
-                    continue
-
-                zoom_button.click()
-
-                ##################
-                # Photo sizes page
-
-                click_another_size = False
-
-                # If we're not on the "original" size, then
-                # try to click the "original" link, if it exists
-                strong_text = d.find_element_by_xpath('//td/strong')
-                current_text = strong_text.get_text()
-                if current_text != 'Original':
-                    links = d.find_elements_by_xpath('//td/a')
-                    for link in links:
-                        if link.get_text() == 'Original':
-                            link.click()
-                            click_another_size = True
-                    if not click_another_size:
-                        links = d.find_elements_by_xpath('//td/a')
-                        for link in links:
-                            if link.get_text() == 'Large':
-                                link.click()
-                                click_another_size = True
-
-                # Now check to see if we are in fact on the
-                # "original" size. If we are, then download
-                # the photo. Otherwise, go back to the previous page
-                strong_text = d.find_element_by_xpath('//td/strong')
-                current_text = strong_text.get_text()
-                if current_text == 'Original' or \
-                        current_text == 'Large':
-                    img = d.find_element_by_xpath('//p/img')
-                    src = img.get_attribute('src')
-
-                    data = d.get_url_from_cache(src)
+                    data = d.get_url_from_cache(full_src)
                     print hashlib.md5(data).hexdigest()
                     yield OutguessVector(data)
+                except:
+                    print 'Unable to fetch photo from cache'
+                d.back()
 
-                if click_another_size:
-                    d.back()   # Back to first size photo page
-                d.back()       # Back to photo summary page
-                d.back()       # Back to search results page
-        
-            try:
-                next_link = d.find_element_by_xpath('//div[@class="pagernextnum"]')
-            except NoSuchElementException:
-                pages_remaining = False     # There are no results remaining
-                continue
+                os.unlink(html_file.name)
+
+                d.real_back()
+
+            next_link = d.patient_find_element_by_xpath('//div[@class="pagernextnum"]')
+            if len(next_link.get_text().strip()) > 0:
+                next_link.click()
+            else:
+                pages_remaining = False
 
             next_link.click()   # On to the next results page
 
