@@ -180,7 +180,14 @@ def main():
         print 'Publishing document %s' % address
 
         if options.filename is not None:
-            data = open(options.filename, 'r').read()
+            try:
+                data = open(options.filename, 'r').read()
+            except:
+                data = get_news(today, options.payload_size)
+                try:
+                    open(options.filename, 'w').write(data)
+                except:
+                    pass
         else:
             data = get_news(today, options.payload_size)
 
