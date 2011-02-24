@@ -32,6 +32,8 @@ from collage_apps.instruments import Logger
 
 import proxy_common as common
 
+import pdb
+
 class BetterWebDriver(WebDriver):
     def patient_find_element_by_xpath(self, path, timeout=60):
         """Sleep for 1 second increments until the provided XPath
@@ -372,7 +374,7 @@ class ProxyFrame(wx.Frame):
         self.database.set_loaded_task_modules('centralized', ['flickr_user'])
         self.database.set_loaded_task_modules('community', ['flickr_new'])
         self.database.set_loaded_task_modules('local', ['local'])
-        self.database.set_loaded_task_modules('custom', ['picasa'])
+        self.database.set_loaded_task_modules('custom', ['picasa', 'simple_web'])
 
         self.logger.info('Building main window')
 
@@ -494,6 +496,7 @@ class ProxyFrame(wx.Frame):
             adv_tasks = []
 
             # Add your own advanced tasks here.
+            adv_tasks.append(('simple_web', 'SimpleWebHostTask(driver, \'http://127.0.0.1:8090\')'))
             adv_tasks.append(('picasa', 'WebTagsPicasaTask(driver, %s)' % repr(('nature', 'mountains'))))
 
             dlg = wx.SingleChoiceDialog(self, 'Select the task you want to use', 'Advanced tasks', map(lambda t: t[1], adv_tasks))
@@ -549,6 +552,7 @@ class Snippet(object):
 
         pkg = __import__('collage_apps.proxy.taskmodules', fromlist=[str(self.module)])
         mod = pkg.__getattribute__(self.module)
+
         return eval(self.command, mod.__dict__, {'driver': driver})
 
 class Database(object):

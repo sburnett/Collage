@@ -21,6 +21,7 @@ import random
 from math import log, ceil
 import bz2
 import math
+import sqlite3
 
 import coder
 import vectorlayer
@@ -66,7 +67,7 @@ class MessageLayer(object):
     _header_size_mask = 0x7F
 
     def __init__(self, vector_provider, block_size, max_unique_blocks,
-                 tasks, task_mapping_size, inst=None, error_margin=2, mac=False):
+                 tasks, task_mapping_size, inst=None, error_margin=2, mac=False, memoize_db=None):
         """Initialize a message channel using application specific parameters.
 
         These parameters are:
@@ -91,6 +92,10 @@ class MessageLayer(object):
         * Whether or not to include a message authentication code in each
           encoded vector. If you cannot tell whether a vector contains
           message data, then you should enable this option.
+        * A file containing memoized embedding limits for a set of vectors.
+          This isn't of general use (since in a real deployment you will
+          hopefully never see the same vector twice), but is useful for
+          demos and other time-sensitive situations.
 
         """
 
@@ -108,6 +113,10 @@ class MessageLayer(object):
 
         self._error_margin = error_margin
         self._mac = mac
+        if memoize_db:
+            self._memoize = EmbeddingMemoizer(memoize_db)
+        else:
+            self._memoize = None
 
     def reload_task_database(self, tasks):
         self._task_database = TaskDatabase(tasks, self._task_mapping_size)
@@ -255,54 +264,70 @@ class MessageLayer(object):
 
                 return (len(ciphertext), encoded_vector)
 
-            try:
-                lower_bound = upper_bound = cover_vector.estimate_max_capacity()
-            except NotImplementedError:
-                lower_bound = upper_bound = 2
-
-            # Step 1: Find a rough lower bound by continuously halving
-            # the estimate until we can successfully encode something.
             coded_vector = None
-            while lower_bound > 2:
-                current_size = lower_bound
-                try:
-                    (current_len, coded_vector) = encode_vector(current_size)
-                except vectorlayer.EncodingError:
-                    upper_bound = lower_bound
-                    lower_bound /= 2
-                else:
-                    break
+            my_chunks = None
+            my_hash = hashlib.md5(cover_vector.get_data()).hexdigest()
+            if self._memoize is not None:
+                my_chunks = self._memoize.lookup(my_hash)
 
-            # Step 2: Find a rough upper bound by adjusting the upper
-            # (and lower) bounds in ever-increasing increments.
-            increment = 1
-            while True:
-                current_size = upper_bound
-                try:
-                    (current_len, coded_vector) = encode_vector(current_size)
-                except vectorlayer.EncodingError:
-                    break
-                else:
-                    increment *= 2
-                    lower_bound = upper_bound
-                    upper_bound += increment
+                if my_chunks is not None:
+                    current_size = int(0.9*int(my_chunks))
+                    try:
+                        (current_len, coded_vector) = encode_vector(current_size)
+                    except vectorlayer.EncodingError:
+                        pass
 
-            # Step 3: Continuously tighten bounds until
-            # within the margin, using binary search.
-            while upper_bound - lower_bound > self._error_margin:
-                current_size = lower_bound + (upper_bound - lower_bound)/2
+            if my_chunks is None:
                 try:
-                    (current_len, coded_vector) = encode_vector(current_size)
-                except vectorlayer.EncodingError:
-                    upper_bound = current_size
-                else:
-                    lower_bound = current_size
+                    lower_bound = upper_bound = cover_vector.estimate_max_capacity()
+                except NotImplementedError:
+                    lower_bound = upper_bound = 2
 
-            if coded_vector:
+                # Step 1: Find a rough lower bound by continuously halving
+                # the estimate until we can successfully encode something.
+                while lower_bound > 2:
+                    current_size = lower_bound
+                    try:
+                        (current_len, coded_vector) = encode_vector(current_size)
+                    except vectorlayer.EncodingError:
+                        upper_bound = lower_bound
+                        lower_bound /= 2
+                    else:
+                        break
+
+                # Step 2: Find a rough upper bound by adjusting the upper
+                # (and lower) bounds in ever-increasing increments.
+                increment = 1
+                while True:
+                    current_size = upper_bound
+                    try:
+                        (current_len, coded_vector) = encode_vector(current_size)
+                    except vectorlayer.EncodingError:
+                        break
+                    else:
+                        increment *= 2
+                        lower_bound = upper_bound
+                        upper_bound += increment
+
+                # Step 3: Continuously tighten bounds until
+                # within the margin, using binary search.
+                while upper_bound - lower_bound > self._error_margin:
+                    current_size = lower_bound + (upper_bound - lower_bound)/2
+                    try:
+                        (current_len, coded_vector) = encode_vector(current_size)
+                    except vectorlayer.EncodingError:
+                        upper_bound = current_size
+                    else:
+                        lower_bound = current_size
+
+            if coded_vector is not None:
                 try:
                     cover_vector.record_estimate(current_size)
                 except AttributeError:
                     pass
+
+                if self._memoize is not None:
+                    self._memoize.memoize(my_hash, current_size)
 
                 print 'Uploading photo with %d encoded bytes' % (current_len,)
                 print 'UPLOADING: %s' % hashlib.md5(coded_vector.get_data()).hexdigest()
@@ -507,6 +532,38 @@ class TaskDatabase(object):
         if idx + self._mapping_size > len(self._tasks):
             mapping += self._tasks[0 : idx+self._mapping_size-len(self._tasks)]
         return mapping
+
+class EmbeddingMemoizer(object):
+    """A class for memoizing the amount of data that can
+       be embedded inside each vector. This functionality
+       isn't generally useful, since in a real deployment
+       you hopefully will never see the same vector twice,
+       but for things like demos it's handy.
+
+       This is implemented (surprise!) as a sqlite database.
+
+    """
+
+    def __init__(self, filename):
+        self._conn = sqlite3.connect(filename)
+        self._conn.row_factory = sqlite3.Row
+
+        self._conn.execute('''CREATE TABLE IF NOT EXISTS memoized
+                              (hash TEXT, chunks INTEGER)''')
+        self._conn.commit()
+
+    def lookup(self, hashcode):
+        cur = self._conn.execute('SELECT chunks FROM memoized WHERE hash = ?', (hashcode,))
+        row = cur.fetchone()
+
+        if row is None:
+            return None
+        else:
+            return int(row['chunks'])
+
+    def memoize(self, hashcode, chunks):
+        self._conn.execute('INSERT INTO memoized (hash, chunks) VALUES (?, ?)', (hashcode, chunks))
+        self._conn.commit()
 
 def main():
     def random_string():

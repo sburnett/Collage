@@ -25,7 +25,10 @@ import flickrapi
 from collage_donation.client.rpc import retrieve
 from collage_apps.proxy.logger import get_logger
 
-import pdb
+try:
+    from collage_vis.database import get_database
+except ImportError:
+    get_database = None
 
 logger = get_logger(__name__, 'flickr_upload')
 
@@ -52,6 +55,11 @@ def main():
                     (tag TEXT, waiting_id INTEGER)''')
 
     logger.info('Flickr upload daemon starting')
+
+    if get_database is not None:
+        vis_db = get_database()
+    else:
+        vis_db = None
 
     while True:
         keys = []
@@ -84,8 +92,12 @@ def main():
                     flickr.auth_checkToken()
                     flickr.upload(filename=datafile.name, title=str(waiting_row['title']), tags=str(' '.join(tags)))
                     logger.info('Uploading photo %s succeeded', key)
+                    if vis_db is not None:
+                        vis_db.upload_photo(key)
                 except flickrapi.FlickrError:
                     logger.info('Uploading photo %s failed', key)
+                    if vis_db is not None:
+                        vis_db.remove_photo(key)
 
                 conn.execute('DELETE FROM waiting WHERE rowid = ?', str(waiting_id))
                 conn.execute('DELETE FROM tags WHERE waiting_id = ?', str(waiting_id))

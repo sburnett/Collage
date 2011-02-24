@@ -25,11 +25,15 @@ from optparse import OptionParser
 import tempfile
 import datetime
 
-import pdb
-
 import flickrapi
+import Image
 
 from collage_apps.proxy.proxy_common import format_address
+
+try:
+    from collage_vis.database import get_database
+except ImportError:
+    get_database = None
 
 APPLICATION_NAME = 'proxy_centralized'
 
@@ -59,9 +63,12 @@ def need_to_upload(flickr, tags):
             out_of_date = True
     return (not found_photo) or out_of_date
 
-def donate(flickr, filename, id, title, tags):
+def donate(flickr, filename, id, title, tags, db=None):
+    if db is not None:
+        db.embed_photo(filename)
+
     handle = open(filename, 'r')
-    submit_path = ['python', '-m', 'collage_donation.client.submit', APPLICATION_NAME, '--attribute=client:centralized', '--attribute=id:%s' % id]
+    submit_path = [sys.executable, '-m', 'collage_donation.client.submit', APPLICATION_NAME, '--attribute=client:centralized', '--attribute=id:%s' % id]
     submit_path.extend(map(lambda tag: '--attribute=tag:%s' % tag, tags))
     proc = subprocess.Popen(submit_path, stdin=handle, stdout=subprocess.PIPE)
     rc = proc.wait()
@@ -73,6 +80,8 @@ def donate(flickr, filename, id, title, tags):
             or len(key) == 0 \
             or rc != 0:
         print 'Could not donate.'
+        if db is not None:
+            db.remove_photo(filename)
         return
 
     print 'Processing donation...'
@@ -81,7 +90,7 @@ def donate(flickr, filename, id, title, tags):
     while True:
         time.sleep(poll_period)
 
-        retrieve_path = ['python', '-m', 'collage_donation.client.retrieve', key]
+        retrieve_path = [sys.executable, '-m', 'collage_donation.client.retrieve', key]
         outfile = tempfile.NamedTemporaryFile(delete=False)
         proc = subprocess.Popen(retrieve_path, stdout=outfile)
         rc = proc.wait()
@@ -92,9 +101,13 @@ def donate(flickr, filename, id, title, tags):
                 upload_photo(flickr, outfile.name, title, '', tags)
             except:
                 print 'Failed to donate photo'
+                if db is not None:
+                    db.remove_photo(filename)
                 return
 
             print 'Successfully donated photo'
+            if db is not None:
+                db.upload_photo(filename)
             return
 
 def auth_flickr():
@@ -118,24 +131,45 @@ def auth_flickr():
 
 def main():
     usage = 'usage: %s <photos directory>'
-    if len(sys.argv) != 2:
-        raise ValueError(usage)
+    parser = OptionParser(usage=usage)
+    parser.set_defaults(always=False)
+    parser.add_option('-a', '--always-upload', dest='always',
+                      action='store_true',
+                      help="Don't check if photos have already been uploaded")
+    options, args = parser.parse_args()
 
-    directory = sys.argv[1]
+    if len(args) != 1:
+        parser.error('Must specify photos directory')
+
+    directory = args[0]
     title = 'Yellowstone photos'
     tags = ['nature', 'vacation']
 
     flickr = auth_flickr()
 
+    if get_database is not None:
+        vis_database = get_database()
+    else:
+        vis_database = None
+
     while True:
         today = datetime.datetime.utcnow()
 
-        if need_to_upload(flickr, tags):
+        if options.always or need_to_upload(flickr, tags):
             delete_photos(flickr, tags)
+
+            if vis_database is not None:
+                filenames = glob.glob(os.path.join(directory, '*.jpg'))
+                for filename in filenames:
+                    img = Image.open(filename)
+                    img.thumbnail((128, 64), Image.ANTIALIAS)
+                    outfile = StringIO.StringIO()
+                    img.save(outfile, 'JPEG')
+                    vis_database.enqueue_photo(filename, base64.b64encode(outfile.getvalue()))
 
             address = base64.b64encode(format_address(today))
             for filename in glob.glob(os.path.join(directory, '*.jpg')):
-                donate(flickr, filename, address, title, tags)
+                donate(flickr, filename, address, title, tags, vis_database)
 
         while today.day == datetime.datetime.utcnow().day:
             time.sleep(1)

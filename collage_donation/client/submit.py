@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """A command-line application for submitting vector donations.
 
 The donated vector is read from stdin. A unique key is written
@@ -10,7 +10,7 @@ retrieve.py)
 import sys
 from optparse import OptionParser
 
-from rpc import submit
+from collage_donation.client.rpc import submit
 
 import pdb
 

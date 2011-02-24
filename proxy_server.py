@@ -31,7 +31,7 @@ tmux new-window -t collage -n proxy_server '%(python)s -m collage_apps.proxy.pro
 tmux attach-session -t collage;'''
 
 clean_script_text = '''cd %(directory)s;
-rm -f waiting_keys.sqlite vectors/* uploads/* *.log estimate_db serv_misc/*.log;'''
+rm -rf waiting_keys.sqlite vectors/* uploads/* *.log estimate_db serv_misc/*.log collage_vis.sqlite local_host/*;'''
 
 donation_script_text = '''cd %(directory)s;
 export COLLAGE_USER=%(user)s;
@@ -52,14 +52,33 @@ tmux new-window -t collage -n flickr_upload_daemon '%(python)s -m collage_donati
 tmux new-window -t collage -n get_latest_tags '%(python)s -m collage_donation.client.flickr_web_client.get_latest_tags; echo Process terminated. Press ENTER to exit.; read';
 tmux attach-session -t collage;'''
 
+offline_script_text = '''cd %(directory)s;
+export COLLAGE_USER=%(user)s;
+export COLLAGE_HOME=%(directory)s;
+export COLLAGE_ROOT=%(collage_root)s;
+export PYTHONPATH=%(collage_root)s;
+export COLLAGE_LOGDIR=%(logdir)s;
+export COLLAGE_VIS=%(directory)s/collage_vis.sqlite;
+tmux new-session -s collage -d -n donation_server '%(django_admin)s runfcgi --settings=collage_donation.server.webapp_settings method=threaded socket=serv_misc/donation.socket pidfile=serv_misc/donation.pid daemonize=false; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n lighttpd_donation '/usr/sbin/lighttpd -f %(collage_root)s/collage_donation/server/lighttpd.conf -D; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n garbage '%(python)s -m collage_donation.server.garbage_collection vectors; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n local_donate 'sleep 5; %(python)s -m collage_donation.client.local_client local_host centralized_photos "`%(python)s -m collage_apps.proxy.proxy_common`"; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n proxy_server '%(python)s -m collage_apps.proxy.proxy_server -d local_host -m memoize.sqlite -f /tmp/collage_story.txt -s 10000 vectors; echo Process terminated. Press ENTER to exit.; read';
+tmux new-window -t collage -n vis_server '%(django_admin)s runserver --settings=collage_vis.photovis.settings 8085; echo Process terminated. Press ENTER to exit.; read'
+tmux new-window -t collage -n local_host '%(django_admin)s runserver --settings=collage_content_hosts.simple_web.settings 8090; echo Process terminated. Press ENTER to exit.; read';
+tmux attach-session -t collage;'''
+
 clean_run_script_text = clean_script_text + run_script_text
 clean_donation_script_text = clean_script_text + donation_script_text
+clean_offline_script_text = clean_script_text + offline_script_text
 
 commands = { 'run': run_script_text
            , 'clean': clean_script_text
            , 'cleanrun': clean_run_script_text
            , 'donation': donation_script_text
            , 'cleandonation': clean_donation_script_text
+           , 'offline': offline_script_text
+           , 'cleanoffline': clean_offline_script_text
            }
 
 def parse_options():

@@ -1,4 +1,4 @@
-"""Django settings for simple_web project. Adjust for your environment."""
+# Django settings for photovis project.
 
 import os
 import os.path
@@ -8,15 +8,14 @@ TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
     ('Sam Burnett', 'sburnett@cc.gatech.edu'),
-    # ('Your Name', 'your_email@domain.com'),
 )
 
 MANAGERS = ADMINS
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': '',                      # Or path to database file if using sqlite3.
+        'ENGINE': 'django.db.backends.sqlite3', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
+        'NAME': os.getenv('COLLAGE_VIS'),       # Or path to database file if using sqlite3.
         'USER': '',                      # Not used with sqlite3.
         'PASSWORD': '',                  # Not used with sqlite3.
         'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
@@ -62,7 +61,7 @@ MEDIA_URL = ''
 ADMIN_MEDIA_PREFIX = '/media/'
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = '+66(t^kz=5h6hp-fai(gg+xs5(hwwo*i%l1*8m4+b8ozg!j&64'
+SECRET_KEY = '-2@8*njus#69ks9eucg*@&wq9=wn#*f6%xotg6es87mc6u$gw+'
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
@@ -74,28 +73,17 @@ TEMPLATE_LOADERS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
 )
 
-ROOT_URLCONF = 'simple_web.urls'
+ROOT_URLCONF = 'collage_vis.photovis.urls'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
-    os.path.join(os.getenv('COLLAGE_ROOT'), 'collage_content_hosts', 'simple_web', 'templates')
+    os.path.join(os.path.abspath(os.path.curdir), 'templates'),
 )
 
 INSTALLED_APPS = (
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.sites',
-    'django.contrib.messages',
-    # Uncomment the next line to enable the admin:
-    # 'django.contrib.admin',
+    'collage_vis.photovis',
 )
-
-CONTENT_HOST_ROOT = os.path.join(os.getenv('COLLAGE_HOME'), 'local_host')

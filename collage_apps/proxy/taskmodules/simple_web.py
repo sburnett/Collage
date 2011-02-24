@@ -3,14 +3,15 @@
 import hashlib
 import base64
 import urllib
+import time
+
+import pdb
 
 from collage.messagelayer import Task
 
 from collage_apps.vectors.jpeg import OutguessVector
 
 from selenium.common.exceptions import NoSuchElementException
-
-import pdb
 
 class SimpleWebHostTask(Task):
     def __init__(self, driver, url):
@@ -23,8 +24,6 @@ class SimpleWebHostTask(Task):
     def receive(self, id):
         id = base64.urlsafe_b64encode(id)
         d = self._driver
-
-        pdb.set_trace()
 
         ###########
         # Main page
@@ -52,12 +51,14 @@ class SimpleWebHostTask(Task):
 
                     yield OutguessVector(data)
 
+                    time.sleep(1)
                     d.back()
 
+                time.sleep(1)
                 d.back()
 
     def _hash(self):
-        return hashlib.sha1(' '.join(self._tags)).digest()
+        return hashlib.sha1(self._url).digest()
 
     def can_embed(self, id, data):
         return True

@@ -21,6 +21,9 @@ import urllib
 import re
 import base64
 import shelve
+import os
+
+import pdb
 
 from collage.messagelayer import MessageLayer
 
@@ -28,6 +31,11 @@ from collage_apps.tasks.flickr import DonateTagPairFlickrTask
 from collage_apps.tasks.local import DonateDirectoryTask
 from collage_apps.providers.flickr import DonatedVectorProvider
 from collage_apps.instruments import Timestamper
+
+try:
+    from collage_vis.database import get_database
+except:
+    get_database = None
 
 import proxy_common as common
 
@@ -66,7 +74,7 @@ def send_news_community(address, data, db_dir, tags, send_ratio, killswitch, est
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
-def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, estimate_db):
+def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, estimate_db, memoize):
     """Publish news inside photos on a local content host, for testing."""
 
     database = AppDatabase(db_dir, 'proxy_local')
@@ -79,12 +87,12 @@ def send_news_local(address, data, db_dir, local_dir, send_ratio, killswitch, es
                                  tasks,
                                  common.TASKS_PER_MESSAGE,
                                  Timestamper(),
-                                 mac=True)
+                                 mac=True,
+                                 memoize_db=memoize)
 
     message_layer.send(address, data, send_ratio=send_ratio)
 
-MAX_PAYLOAD_SIZE=32000
-def get_news(today):
+def get_news(today, max_payload_size):
     """Fetch today's top news from the BBC mobile Web site."""
 
     urls = []
@@ -116,7 +124,7 @@ def get_news(today):
     payload = ''
     num_stories = 0
     for story in stories:
-        if len(payload) + len(story) < MAX_PAYLOAD_SIZE:
+        if len(payload) + len(story) < max_payload_size:
             payload += story
             num_stories += 1
 
@@ -139,7 +147,7 @@ def get_tags():
 def main():
     usage = 'usage: %s [options] <db_dir>'
     parser = OptionParser(usage=usage)
-    parser.set_defaults(send_ratio=100, local_dir=None, estimate_db='estimate_db')
+    parser.set_defaults(send_ratio=100, local_dir=None, estimate_db='estimate_db', payload_size=32000)
     parser.add_option('-r', '--send-ratio', dest='send_ratio',
                       action='store', type='float',
                       help='Ratio between data to send and total data length')
@@ -149,6 +157,15 @@ def main():
     parser.add_option('-e', '--estimate-db', dest='estimate_db',
                       action='store', type='string',
                       help='Location of capacity estimation database')
+    parser.add_option('-m', '--memoize-db', dest='memoize',
+                     action='store', type='string',
+                     help='Location of memoization database (advanced)')
+    parser.add_option('-f', '--file', dest='filename',
+                     action='store', type='string',
+                     help='Read news from a file; default is to fetch from BBC')
+    parser.add_option('-s', '--size', dest='payload_size',
+                     action='store', type='int',
+                     help='Maximum size of payload to publish')
     (options, args) = parser.parse_args()
 
     estimate_db = shelve.open(options.estimate_db, writeback=True)
@@ -162,33 +179,42 @@ def main():
 
         print 'Publishing document %s' % address
 
-        data = get_news(today)
+        if options.filename is not None:
+            data = open(options.filename, 'r').read()
+        else:
+            data = get_news(today, options.payload_size)
+
+        if get_database is not None:
+            vis_database = get_database()
+            vis_database.add_article_sender(data)
+
         db_dir = args[0]
-        tags = get_tags()
-        
+
         thread_info = []
-
-        # Centralized
-        killswitch = threading.Event()
-        thread = threading.Thread(target=send_news_centralized,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
-        thread.daemon = True
-        thread.start()
-        thread_info.append((thread, killswitch))
-
-        # Community
-        killswitch = threading.Event()
-        thread = threading.Thread(target=send_news_community,
-                                  args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
-        thread.daemon = True
-        thread.start()
-        thread_info.append((thread, killswitch))
 
         # Local directory
         if options.local_dir is not None:
             killswitch = threading.Event()
+            thread = threading.Thread(target=send_news_local,
+                                      args=(address, data, db_dir, options.local_dir, options.send_ratio, killswitch, estimate_db, options.memoize))
+            thread.daemon = True
+            thread.start()
+            thread_info.append((thread, killswitch))
+        else:
+            tags = get_tags()
+
+            # Centralized
+            killswitch = threading.Event()
+            thread = threading.Thread(target=send_news_centralized,
+                                      args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
+            thread.daemon = True
+            thread.start()
+            thread_info.append((thread, killswitch))
+
+            # Community
+            killswitch = threading.Event()
             thread = threading.Thread(target=send_news_community,
-                                      args=(address, data, db_dir, options.local_dir, options.send_ratio, killswitch, estimate_db))
+                                      args=(address, data, db_dir, tags, options.send_ratio, killswitch, estimate_db))
             thread.daemon = True
             thread.start()
             thread_info.append((thread, killswitch))

@@ -1,5 +1,7 @@
 import re
 import datetime
+import base64
+import hashlib
 
 BLOCK_SIZE = 8
 MAX_UNIQUE_BLOCKS = 2**16
@@ -14,3 +16,9 @@ def parse_address(address):
     return datetime.date(int(match.group('year')),
                          int(match.group('month')),
                          int(match.group('day')))
+
+def main():
+    print format_address(datetime.datetime.utcnow())
+
+if __name__ == '__main__':
+    main()

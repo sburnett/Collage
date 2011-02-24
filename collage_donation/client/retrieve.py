@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """A command-line interface to poll for completion of vector donation.
 
 If the indicated vector is available, it will be printed to stdout and the
